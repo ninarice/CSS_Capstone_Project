@@ -1,0 +1,500 @@
+---
+title: "Dashboard_leaflet"
+output: html_document
+date: "2025-01-23"
+---
+
+```{r}
+install.packages("leaflet")
+library(leaflet)
+
+leaflet() %>%  # Start the leaflet map
+  addTiles() %>%  # Add default OpenStreetMap tiles
+  addMarkers(lng = -122.4194, lat = 37.7749, popup = "San Francisco")
+```
+
+```{r}
+install.packages("maps")
+library(maps)
+
+# Get map data for California
+california_map <- map("state", region = "california", plot = FALSE, fill = TRUE)
+
+# Create a leaflet map
+leaflet() %>%
+  addTiles() %>%  # Add default OpenStreetMap tiles
+  addPolygons(data = california_map,
+              color = "blue",
+              weight = 1,
+              fillOpacity = 0.5,
+              label = "California") %>%
+  setView(lng = -119.4179, lat = 36.7783, zoom = 6)  # Center map on California
+
+
+
+
+```
+
+```{r}
+# Load necessary libraries
+library(leaflet)
+library(maps)
+library(sf)
+
+# Get California map data
+california_map <- map("state", region = "california", plot = FALSE, fill = TRUE)
+
+# Convert map data to sf format
+california_sf <- st_as_sf(map("state", region = "california", plot = FALSE, fill = TRUE, 
+                              col = "transparent"))
+
+# Create a leaflet map with California outlined in a thick black line
+leaflet() %>%
+  addTiles() %>%  # Add default OpenStreetMap tiles
+  addPolylines(data = california_sf,
+               color = "black",     # Border color
+               weight = 3) %>%      # Thickness of the border
+  setView(lng = -119.4179, lat = 36.7783, zoom = 6)  # Center map on California
+
+```
+
+```{r}
+# Create a leaflet map with white background and borders
+leaflet() %>%
+  addProviderTiles("CartoDB.PositronNoLabels") %>%  # White background without labels
+  addPolygons(data = california,
+              color = "black",      # Border color for state
+              weight = 3,          # Border thickness for state
+              fillOpacity = 0,     # Transparent interior for state
+              label = ~NAME) %>%   # Add a label for California
+  addPolygons(data = california_counties,
+              color = "grey",      # Border color for counties
+              weight = 1,          # Border thickness for counties
+              fillOpacity = 0,     # Transparent interior for counties
+              label = ~NAME) %>%   # Add a label for counties
+  setView(lng = -119.4179, lat = 36.7783, zoom = 6)%>%  # Center the map on California
+  setMaxBounds(
+    lng1 = california_bbox["xmin"],  # West longitude limit
+    lat1 = california_bbox["ymin"],  # South latitude limit
+    lng2 = california_bbox["xmax"],  # East longitude limit
+    lat2 = california_bbox["ymax"]   # North latitude limit
+  )
+
+```
+
+```{r}
+retailers <- d[!is.na(d$lat) & !is.na(d$lon), ]
+```
+
+```{r}
+leaflet(data = retailers) %>%
+  addTiles() %>%
+  addMarkers(
+    ~lon, ~lat,
+    popup = ~paste(
+      "<b>Name:</b>", name, "<br>",
+      "<b>Status:</b>", business_status, "<br>",
+      "<b>Rating:</b>", rating, "(", user_ratings_total, "ratings)<br>",
+      "<b>Address:</b>", vicinity, "<br>",
+      "<b>Website:</b>", paste0('<a href="', website, '" target="_blank">', website, "</a>")
+    )
+  )
+```
+
+\# Create the map with solid blue circle markers and detailed popups
+
+leaflet(data = retailers) %\>%
+
+addTiles() %\>%
+
+addCircleMarkers(
+
+\~lon, \~lat, \# Longitude and Latitude for markers
+
+radius = 6, \# Size of the circle
+
+fillColor = "purple", \# Fill color of the circle
+
+fillOpacity = 1, \# Full opacity to make them solid
+
+stroke = FALSE, \# No border around the circles
+
+popup = \~paste(
+
+\# HTML content for the popup
+
+"\<b\>Name:\</b\>", name, "\<br\>",
+
+"\<b\>Status:\</b\>", business_status, "\<br\>",
+
+"\<b\>Rating:\</b\>", rating, "(", user_ratings_total, "ratings)\<br\>",
+
+"\<b\>Address:\</b\>", vicinity, "\<br\>",
+
+"\<b\>Website:\</b\>", ifelse(
+
+!is.na(website),
+
+paste0('\<a href="', website, '" target="\_blank"\>', website, "\</a\>"),
+
+"No website available"
+
+)
+
+)
+
+)
+
+```{r}
+
+# Create the map with solid blue circle markers and detailed popups
+leaflet(data = retailers) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat,               # Longitude and Latitude for markers
+    radius = 6,               # Size of the circle
+    fillColor = "purple",       # Fill color of the circle
+    fillOpacity = 1,          # Full opacity to make them solid
+    stroke = FALSE,           # No border around the circles
+    popup = ~paste(
+      # HTML content for the popup
+      "<b>Name:</b>", name, "<br>",
+      "<b>Status:</b>", business_status, "<br>",
+      "<b>Rating:</b>", rating, "(", user_ratings_total, "ratings)<br>",
+      "<b>Address:</b>", vicinity, "<br>",
+      "<b>Website:</b>", ifelse(
+        !is.na(website), 
+        paste0('<a href="', website, '" target="_blank">', website, "</a>"), 
+        "No website available"
+      )
+    )
+  )
+
+
+
+```
+
+```{r}
+# Add a new column to the dataset for marker color
+retailers$marker_color <- ifelse(!is.na(retailers$website), "red", "blue")
+
+# Create the map with conditional marker colors
+leaflet(data = retailers) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat,               # Longitude and Latitude for markers
+    radius = 6,               # Size of the circle
+    fillColor = ~marker_color, # Conditional fill color (red or blue)
+    fillOpacity = 1,          # Full opacity to make them solid
+    stroke = FALSE,           # No border around the circles
+    popup = ~paste(
+      # HTML content for the popup
+      "<b>Name:</b>", name, "<br>",
+      "<b>Status:</b>", business_status, "<br>",
+      "<b>Rating:</b>", rating, "(", user_ratings_total, "ratings)<br>",
+      "<b>Address:</b>", vicinity, "<br>",
+      "<b>Website:</b>", ifelse(
+        !is.na(website), 
+        paste0('<a href="', website, '" target="_blank">', website, "</a>"), 
+        "No website available"
+      )
+    )
+  )
+
+
+```
+
+```{r}
+
+library(dplyr)
+
+# Filter the dataset to remove rows where all relevant columns are NA
+retailers_clean <- retailers %>%
+  filter(
+    !is.na(name) | 
+    !is.na(business_status) | 
+    !is.na(rating) | 
+    !is.na(vicinity) | 
+    !is.na(website)
+  )
+
+# Create a temporary version of the dataset, flattening only the necessary columns
+temp_data <- retailers_clean %>%
+  mutate(
+    name = unlist(name),
+    business_status = unlist(business_status),
+    rating = unlist(rating),
+    vicinity = unlist(vicinity),
+    website = unlist(website),
+    marker_color = ifelse(!is.na(website), "red", "blue")
+  )
+
+# Create the map with the temporary dataset
+leaflet(data = temp_data) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~lon, ~lat,               # Longitude and Latitude for markers
+    radius = 6,               # Size of the circle
+    fillColor = ~marker_color, # Conditional fill color (red or blue)
+    fillOpacity = 1,          # Full opacity to make them solid
+    stroke = FALSE,           # No border around the circles
+    popup = ~paste(
+      # HTML content for the popup
+      "<b>Name:</b>", ifelse(!is.na(name), name, "No name available"), "<br>",
+      "<b>Status:</b>", ifelse(!is.na(business_status), business_status, "No status available"), "<br>",
+      "<b>Rating:</b>", ifelse(!is.na(rating), paste(rating, "(", user_ratings_total, "ratings)"), "No ratings available"), "<br>",
+      "<b>Address:</b>", ifelse(!is.na(vicinity), vicinity, "No address available"), "<br>",
+      "<b>Website:</b>", ifelse(
+        !is.na(website), 
+        paste0('<a href="', website, '" target="_blank">', website, "</a>"), 
+        "No website available"
+      )
+    )
+  )
+
+
+```
+
+```{r}
+library(tigris)
+library(leaflet)
+library(sf)  # For spatial data manipulation
+
+# Options for tigris to use sf objects
+options(tigris_use_cache = TRUE)
+options(tigris_class = "sf")
+
+# Load California counties using tigris
+california_counties <- counties(state = "CA", cb = TRUE)
+
+# Filter for San Diego County
+san_diego_county <- california_counties %>%
+  filter(NAME == "San Diego")
+
+# Create the leaflet map for San Diego County
+leaflet() %>%
+  addProviderTiles("CartoDB.PositronNoLabels") %>%  # White background without labels
+  addPolygons(
+    data = san_diego_county,
+    color = "black",      # Border color for San Diego County
+    weight = 3,           # Border thickness
+    fillOpacity = 0,      # Transparent interior
+    label = ~NAME         # Add a label for San Diego County
+  ) %>%
+  setView(
+    lng = -117.1611,      # Center the map on San Diego
+    lat = 32.7157,
+    zoom = 9              # Adjust zoom level for San Diego County
+  )
+
+```
+
+```{r}
+# Load necessary libraries
+library(tigris)
+library(leaflet)
+library(sf)        # For spatial data manipulation
+library(dplyr)     # For data manipulation
+
+# Options for tigris to use sf objects
+options(tigris_use_cache = TRUE)
+options(tigris_class = "sf")
+
+# Step 1: Load California counties and filter for San Diego County
+california_counties <- counties(state = "CA", cb = TRUE)
+
+# Filter for San Diego County
+san_diego_county <- california_counties %>%
+  filter(NAME == "San Diego")
+
+# Step 2: Prepare retailers' data
+# Filter the dataset to remove rows where all relevant columns are NA
+retailers_clean <- retailers %>%
+  filter(
+    !is.na(name) | 
+    !is.na(business_status) | 
+    !is.na(rating) | 
+    !is.na(vicinity) | 
+    !is.na(website)
+  )
+
+# Create a temporary version of the dataset, flattening only the necessary columns
+temp_data <- retailers_clean %>%
+  mutate(
+    name = unlist(name),
+    business_status = unlist(business_status),
+    rating = unlist(rating),
+    vicinity = unlist(vicinity),
+    website = unlist(website),
+    marker_color = ifelse(!is.na(website), "red", "blue")
+  )
+
+# Step 3: Combine the San Diego County boundary with retailer markers on a leaflet map
+leaflet() %>%
+  # Add a white background without labels
+  addProviderTiles("CartoDB.PositronNoLabels") %>%
+  
+  # Add the San Diego County boundary
+  addPolygons(
+    data = san_diego_county,
+    color = "black",      # Border color for San Diego County
+    weight = 3,           # Border thickness
+    fillOpacity = 0,      # Transparent interior
+    label = NULL         # Add a label for San Diego County
+  ) %>%
+  
+  # Add retailer markers
+  addCircleMarkers(
+    data = temp_data,
+    ~lon, ~lat,               # Longitude and Latitude for markers
+    radius = 6,               # Size of the circle
+    fillColor = ~marker_color, # Conditional fill color (red or blue)
+    fillOpacity = 1,          # Full opacity to make them solid
+    stroke = FALSE,           # No border around the circles
+    popup = ~paste(
+      # HTML content for the popup
+      "<b>Name:</b>", ifelse(!is.na(name), name, "No name available"), "<br>",
+      "<b>Status:</b>", ifelse(!is.na(business_status), business_status, "No status available"), "<br>",
+      "<b>Rating:</b>", ifelse(!is.na(rating), paste(rating, "(", user_ratings_total, "ratings)"), "No ratings available"), "<br>",
+      "<b>Address:</b>", ifelse(!is.na(vicinity), vicinity, "No address available"), "<br>",
+      "<b>Website:</b>", ifelse(
+        !is.na(website), 
+        paste0('<a href="', website, '" target="_blank">', website, "</a>"), 
+        "No website available"
+      )
+    )
+  ) %>%
+  
+  # Center the map on San Diego
+  setView(
+    lng = -117.1611,      # Center the map on San Diego
+    lat = 32.7157,
+    zoom = 9              # Adjust zoom level for San Diego County
+  )
+
+
+```
+
+```{r}
+library(tigris)
+library(leaflet)
+library(sf)        # For spatial data manipulation
+library(dplyr)     # For data manipulation
+
+# Options for tigris to use sf objects
+options(tigris_use_cache = TRUE)
+options(tigris_class = "sf")
+
+# Step 1: Load California counties and filter for San Diego County
+california_counties <- counties(state = "CA", cb = TRUE)
+
+# Filter for San Diego County
+san_diego_county <- california_counties %>%
+  filter(NAME == "San Diego")
+
+# **Fix CRS issue: Transform to WGS84**
+san_diego_county <- st_transform(san_diego_county, crs = 4326)
+
+# Step 2: Prepare retailers' data
+# Filter the dataset to remove rows where all relevant columns are NA
+retailers_clean <- retailers %>%
+  filter(
+    !is.na(name) | 
+    !is.na(business_status) | 
+    !is.na(rating) | 
+    !is.na(vicinity) | 
+    !is.na(website)
+  )
+
+# Create a temporary version of the dataset, flattening only the necessary columns
+temp_data <- retailers_clean %>%
+  mutate(
+    name = unlist(name),
+    business_status = unlist(business_status),
+    rating = unlist(rating),
+    vicinity = unlist(vicinity),
+    website = unlist(website),
+    marker_color = ifelse(!is.na(website), "red", "blue")
+  )
+
+# Step 3: Combine the San Diego County boundary with retailer markers on a leaflet map
+leaflet() %>%
+  # Add a white background without labels
+  addProviderTiles("CartoDB.PositronNoLabels") %>%
+  
+  # Add the San Diego County boundary
+  addPolygons(
+    data = san_diego_county,
+    color = "black",      # Border color for San Diego County
+    weight = 3,           # Border thickness
+    fillOpacity = 0,      # Transparent interior
+    label = NULL         # Add a label for San Diego County
+  ) %>%
+  
+  # Add retailer markers
+  addCircleMarkers(
+    data = temp_data,
+    ~lon, ~lat,               # Longitude and Latitude for markers
+    radius = 6,               # Size of the circle
+    fillColor = ~marker_color, # Conditional fill color (red or blue)
+    fillOpacity = 1,          # Full opacity to make them solid
+    stroke = FALSE,           # No border around the circles
+    popup = ~paste(
+      # HTML content for the popup
+      "<b>Name:</b>", ifelse(!is.na(name), name, "No name available"), "<br>",
+      "<b>Status:</b>", ifelse(!is.na(business_status), business_status, "No status available"), "<br>",
+      "<b>Rating:</b>", ifelse(!is.na(rating), paste(rating, "(", user_ratings_total, "ratings)"), "No ratings available"), "<br>",
+      "<b>Address:</b>", ifelse(!is.na(vicinity), vicinity, "No address available"), "<br>",
+      "<b>Website:</b>", ifelse(
+        !is.na(website), 
+        paste0('<a href="', website, '" target="_blank">', website, "</a>"), 
+        "No website available"
+      )
+    )
+  ) %>%
+  
+  # Center the map on San Diego
+  setView(
+    lng = -117.1611,      # Center the map on San Diego
+    lat = 32.7157,
+    zoom = 9              # Adjust zoom level for San Diego County
+  )
+
+```
+
+```{r}
+# Replace with the correct file path to your shapefile
+shapefile_path <- "/Users/prosperityland/Downloads/Merged_Census_SDI_data/Merged_Census_SDI.shp"
+shape_data <- st_read(shapefile_path)
+
+```
+
+```{r}
+# Transform the CRS to WGS84
+shape_data_wgs84 <- st_transform(shape_data, crs = 4326)
+
+# Verify the new CRS
+st_crs(shape_data_wgs84)
+
+library(leaflet)
+
+leaflet(data = shape_data_wgs84) %>%
+  addTiles() %>%  # Add OpenStreetMap tiles
+  addPolygons(
+    color = "blue",  # Polygon boundary color
+    weight = 1,      # Polygon boundary thickness
+    fillColor = "orange",  # Fill color for polygons
+    fillOpacity = 0.5      # Transparency of fill color
+  )
+
+```
+
+```{r}
+
+colnames(d)
+
+```
+
+```{r}
+head(d)
+```
