@@ -51,6 +51,25 @@ The dashboard we create will provide a visual representation of our results and 
 
 \
 
+## Logistic Regression
+
+Question: Does the presence of **local flavor restrictions** impact the **likelihood of vape shops operating e-commerce websites?**
+
+```{r}
+
+#policy data 
+#pilot data e-commerce 
+#merge 
+
+
+```
+
+## Pilot 
+
+```{r}
+
+```
+
 \
 
 ## **Sources**
