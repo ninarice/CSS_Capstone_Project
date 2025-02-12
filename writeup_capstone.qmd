@@ -5,13 +5,13 @@ format: pdf
 editor: visual
 ---
 
-## Introduction 
+## Introduction
 
-### Abstract 
+### Abstract
 
 In this project, we investigate the relationship between local tobacco flavor restrictions and the prevalence of e-commerce tobacco retailers, focusing on demographic factors included in the Social Deprivation Index. Our work supports UCSD’s Tobacco E-commerce Lab by developing two research products: analyses exploring whether such e-commerce tobacco retailers are more prevalent in areas with flavor restrictions, and a resultant map dashboard displaying California’s e-commerce tobacco retailers alongside census tract and SDI data. Preliminary data suggest that retailers in jurisdictions with flavor bans are 3.3 times more likely to operate online, highlighting potential gaps in youth protection ([Overview](https://docs.google.com/document/d/1rtYKagZG6uFF-KYHBI_VQBgf24FrzS6GGJgoXwamw6M/edit?tab=t.0)). Key research questions include whether vape shop owners are more likely to use e-commerce in areas with flavor bans and what demographic characteristics are associated with higher concentrations of e-commerce retailers. Findings aim to inform stakeholders and improve regulatory frameworks for flavored tobacco products.
 
-### Background 
+### Background
 
 E-cigarettes contain the highly addictive neurotoxin nicotine and emit mainstream and secondhand aerosol that includes at least ten chemicals listed under California’s Proposition 65 as known to cause cancer, birth defects, or other reproductive harm (California Department of Public Health, 2015). One of the negative effects of e-cigarettes is an increase in oxidative stress, which is a key factor in toxicity and addiction, with evidence suggesting that both nicotine and non-nicotine e-cigarettes may contribute to health issues like asthma, depression, and social adjustment challenges in young adults (Gunnell, Appleby, & Araya, 2019). In addition, flavored tobacco products have increased the prevalence of tobacco use amongst youth. E-cigarettes pose significant risks to youth, whose developing brains are more susceptible to nicotine addiction, making prevention efforts essential. According to the California Youth Tobacco Survey (2023), of youth respondents that use tobacco, 85.6% also reported using flavored tobacco products. Thus, enforcement of new restrictions limiting addictive products or the sale of tobacco to minors is crucial in efforts of this public health initiative. 
 
@@ -27,7 +27,7 @@ In this project, we investigate the relationship between local tobacco flavor re
 
 Our key research questions include whether tobacco retailers are more likely to use e-commerce in areas with flavor bans and what demographic characteristics are associated with neighborhoods having higher concentrations of tobacco e-commerce facilities. We hypothesize that tobacco retailers are more likely to use e-commerce in places with local flavor restrictions. Additionally, we will conduct exploratory research on census tract-level demographic data (e.g., median household income, race/ethnicity, age, and SDI scores) to examine how they are related to the prevalence of vape shops or tobacco e-commerce nearby. Regions facing greater socioeconomic challenges are expected to have higher e-commerce tobacco product prevalence. Findings from this study aim to inform stakeholders and improve regulatory frameworks for flavored tobacco products.
 
-## Methods 
+## Methods
 
 ### Sample
 
@@ -35,7 +35,7 @@ The data we will analyze is a sample of all current tobacco retailers returned f
 
 From this broader dataset of all tobacco retailers in California, we will focus specifically on retailers with e-commerce websites. We estimate this subset will include approximately 5,000 retailers (n = 5,000). As part of the data preparation process, we will manually audit these websites to determine whether their website allows customers to purchase vape products online. This step will help us more accurately differentiate between retailers that use e-commerce to sell vaping products, and those who have websites but do not offer a purchasing platform. 
 
-### Measures 
+### Measures
 
 [Retailer Presence:]{.underline} To measure the influence of flavor restrictions on e-commerce activity, we will measure the occurrence and density of tobacco e-commerce retailers and facilities, within a list of 148 localities that have banned the sale of flavored tobacco products. (Campaign for Tobacco-Free Kids, n.d.) 
 
@@ -57,14 +57,22 @@ Question: Does the presence of **local flavor restrictions** impact the **likeli
 
 ```{r}
 
-#policy data 
+#policy data #too big to upload to github 
+# Policy Shapefile - polsf
+library(sf)
+polsf <- st_read("/Users/jennabrooks/Desktop/Flavor_ban_policy_CA_1")
+
 #pilot data e-commerce 
+
+
+
 #merge 
+
 
 
 ```
 
-## Pilot 
+## Pilot
 
 ```{r}
 
@@ -80,18 +88,18 @@ California Department of Public Health. (2023). California youth tobacco survey 
 
 California Legislature. (2023). Assembly Bill 3218: Tobacco products: sale of flavored tobacco products: prohibition. California Legislature.[ ](https://leginfo.legislature.ca.gov/faces/billTextClient.xhtml?bill_id=202320240AB3218)<https://leginfo.legislature.ca.gov/faces/billTextClient.xhtml>[?bill_id=202320240AB3218](https://leginfo.legislature.ca.gov/faces/billTextClient.xhtml?bill_id=202320240AB3218)
 
-Campaign for Tobacco-Free Kids. (n.d.). The toll of tobacco in California. Campaign for Tobacco-Free Kids.[ https://assets.tobaccofreekids.org/factsheets/0398.pdf](https://assets.tobaccofreekids.org/factsheets/0398.pdf)
+Campaign for Tobacco-Free Kids. (n.d.). The toll of tobacco in California. Campaign for Tobacco-Free Kids.<https://assets.tobaccofreekids.org/factsheets/0398.pdf>
 
-Chaffee, B. W., Donaldson, C. D., Couch, E. T., Guerra Castillo, C., Farooq, O., Cheng, N. F., Ameli, N., Wilkinson, M. L., Gansky, S. A., Zhang, X., & others. (2024). Flavored tobacco product use among California adolescents before and immediately after a statewide flavor ban. Nicotine & Tobacco Research, ntae261.[ https://doi.org/10.1093/ntr/ntae261](https://doi.org/10.1093/ntr/ntae261)
+Chaffee, B. W., Donaldson, C. D., Couch, E. T., Guerra Castillo, C., Farooq, O., Cheng, N. F., Ameli, N., Wilkinson, M. L., Gansky, S. A., Zhang, X., & others. (2024). Flavored tobacco product use among California adolescents before and immediately after a statewide flavor ban. Nicotine & Tobacco Research, ntae261.<https://doi.org/10.1093/ntr/ntae261>
 
-Gunnell, D., Appleby, L., & Araya, R. (2019). The contribution of social determinants of health to suicide  rates: An overview of the evidence. Social Science & Medicine, 243, 112551.[ https://doi.org/10.1016/j.socscimed.2019.112551](https://doi.org/10.1016/j.socscimed.2019.112551)
+Gunnell, D., Appleby, L., & Araya, R. (2019). The contribution of social determinants of health to suicide  rates: An overview of the evidence. Social Science & Medicine, 243, 112551.<https://doi.org/10.1016/j.socscimed.2019.112551>
 
 Leas, E. C., Mejorado, T., Harati, R., Ellis, S., Satybaldiyeva, N., Morales, N., & Poliak, A. (2023). E-commerce licensing loopholes: A case study of online shopping for tobacco products following a statewide sales restriction on flavoured tobacco in California. Tobacco Control, 32(6), 562-568. <https://doi.org/10.1136/tc-2023-058269>
 
-Tercyak, K. P., Phan, L., Gallegos-Carrillo, K., Mays, D., Audrain-McGovern, J., Rehberg, K., Li, Y., Cartujano-Barrera, F., & Cupertino, A. P. (2020). Prevalence and correlates of lifetime e-cigarette use among adolescents attending public schools in a low-income community in the US. Addictive Behaviors, 114, 106738.[ https://doi.org/10.1016/j.addbeh.2020.106738](https://doi.org/10.1016/j.addbeh.2020.106738)
+Tercyak, K. P., Phan, L., Gallegos-Carrillo, K., Mays, D., Audrain-McGovern, J., Rehberg, K., Li, Y., Cartujano-Barrera, F., & Cupertino, A. P. (2020). Prevalence and correlates of lifetime e-cigarette use among adolescents attending public schools in a low-income community in the US. Addictive Behaviors, 114, 106738.<https://doi.org/10.1016/j.addbeh.2020.106738>
 
 Tobacco-Related Disease Research Program. (2023, November). Endgame policy platform. 
 
-Tobacco-Related Disease Research Program.[ https://www.trdrp.org/about/endgame-policy-platform.pdf](https://www.trdrp.org/about/endgame-policy-platform.pdf)
+Tobacco-Related Disease Research Program.<https://www.trdrp.org/about/endgame-policy-platform.pdf>
 
-The Robert Graham Center. (n.d.). Social deprivation index. The Robert Graham Center.[ https://www.graham-center.org/maps-data-tools/social-deprivation-index.html](https://www.graham-center.org/maps-data-tools/social-deprivation-index.html)
+The Robert Graham Center. (n.d.). Social deprivation index. The Robert Graham Center.<https://www.graham-center.org/maps-data-tools/social-deprivation-index.html>
