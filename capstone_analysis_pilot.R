@@ -105,3 +105,14 @@ analysis_data %>%
   geom_col() +
   labs(x = "Income Tertile", y = "E-commerce Prevalence")
 # Visualization: Shows e-commerce presence increases across income levels.
+
+# Visualization: e-commerce prevalence by sdi tertile
+library(ggplot2)
+analysis_data %>%
+  mutate(income_tertile = ntile(sdi, 3)) %>%
+  group_by(income_tertile) %>%
+  summarize(ecomm_rate = mean(has_ecomm)) %>%
+  ggplot(aes(x = factor(income_tertile), y = ecomm_rate)) +
+  geom_col() +
+  labs(x = "SDI Tertile", y = "E-commerce Prevalence")
+# Visualization: Shows e-commerce presence increases across SDI levels.
