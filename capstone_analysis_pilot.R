@@ -7,10 +7,10 @@ print(chi_result)
 # Result: No significant association between flavor ban presence and e-commerce.
 
 # Logistic regression: flavor bans → e-commerce presence
-logmodel <- glm(has_ecomm ~ flavor_ban, data = analysis_data, family = "binomial")
-summary(logmodel)
-exp(coef(logmodel))
-exp(confint(logmodel))
+model_flavor <- glm(has_ecomm ~ flavor_ban, data = analysis_data, family = "binomial")
+summary(model_flavor)
+exp(coef(model_flavor))
+exp(confint(model_flavor))
 # Result: Flavor bans are not a significant predictor (p = 0.855).
 
 # --- EXPLORATORY MODELS ---
@@ -96,23 +96,155 @@ summary(model_ses_to_ban)
 # Result: No individual SES variable remains significant; overlapping effects likely.
 
 # Visualization: e-commerce prevalence by income tertile
-library(ggplot2)
 analysis_data %>%
   mutate(income_tertile = ntile(MdnHHnc, 3)) %>%
   group_by(income_tertile) %>%
   summarize(ecomm_rate = mean(has_ecomm)) %>%
   ggplot(aes(x = factor(income_tertile), y = ecomm_rate)) +
-  geom_col() +
-  labs(x = "Income Tertile", y = "E-commerce Prevalence")
-# Visualization: Shows e-commerce presence increases across income levels.
+  geom_col(fill = "steelblue") +
+  labs(
+    title = "E-Commerce Prevalence by Income Tertile",
+    x = "Income Tertile (1 = Low, 3 = High)",
+    y = "Proportion of Retailers with E-Commerce"
+  ) +
+  theme_minimal()
+
 
 # Visualization: e-commerce prevalence by sdi tertile
-library(ggplot2)
 analysis_data %>%
-  mutate(income_tertile = ntile(sdi, 3)) %>%
+  mutate(sdi_tertile = ntile(sdi, 3)) %>%
+  group_by(sdi_tertile) %>%
+  summarize(ecomm_rate = mean(has_ecomm)) %>%
+  ggplot(aes(x = factor(sdi_tertile), y = ecomm_rate)) +
+  geom_col(fill = "steelblue") +
+  labs(
+    title = "E-Commerce Prevalence by SDI Tertile",
+    x = "SDI Tertile (1 = Low, 3 = High)",
+    y = "Proportion of Retailers with E-Commerce"
+  ) +
+  theme_minimal()
+
+
+
+
+#bar chart
+analysis_data %>%
+  mutate(ecomm_status = ifelse(has_ecomm == 1, "E-Commerce", "No E-Commerce")) %>%
+  count(ecomm_status) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = ecomm_status, y = prop, fill = ecomm_status)) +
+  geom_col(show.legend = FALSE) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(
+    title = "Proportion of Tobacco Retailers Offering E-Commerce",
+    x = "",
+    y = "Percentage of Retailers"
+  ) +
+  theme_minimal()
+
+#pie chart
+ecomm_summary <- analysis_data %>%
+  mutate(ecomm_status = ifelse(has_ecomm == 1, "E-Commerce", "No E-Commerce")) %>%
+  count(ecomm_status) %>%
+  mutate(prop = n / sum(n),
+         label = paste0(ecomm_status, "\n", round(prop * 100), "%"))
+
+# Make the pie chart
+ggplot(ecomm_summary, aes(x = "", y = prop, fill = ecomm_status)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 5) +
+  scale_fill_manual(values = c("steelblue", "gray70")) +
+  labs(title = "Share of Tobacco Retailers with E-Commerce") +
+  theme_void() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+library(scales)
+
+# 
+ecomm_by_income <- analysis_data %>%
+  mutate(income_tertile = ntile(MdnHHnc, 3)) %>%
   group_by(income_tertile) %>%
   summarize(ecomm_rate = mean(has_ecomm)) %>%
-  ggplot(aes(x = factor(income_tertile), y = ecomm_rate)) +
-  geom_col() +
-  labs(x = "SDI Tertile", y = "E-commerce Prevalence")
-# Visualization: Shows e-commerce presence increases across SDI levels.
+  mutate(income_label = factor(
+    income_tertile,
+    levels = 1:3,
+    labels = c("Low Income", "Middle Income", "High Income")
+  ))
+
+# Assign plot to a variable
+p <- ggplot(ecomm_by_income, aes(x = income_label, y = ecomm_rate, fill = income_label)) +
+  geom_col(width = 0.7, color = "black", show.legend = FALSE) +
+  geom_text(aes(label = percent(ecomm_rate, accuracy = 1)),
+            vjust = -0.5, size = 5) +
+  scale_y_continuous(labels = percent_format(accuracy = 1), limits = c(0, 0.2)) +
+  labs(
+    title = "E-Commerce Prevalence by Income Tertile",
+    x = "Income Group",
+    y = "Proportion of Retailers with E-Commerce"
+  ) +
+  scale_fill_manual(values = c("#92C5DE", "#4393C3", "#2166AC")) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 22),
+    axis.text = element_text(color = "gray25", size = 13)
+  )
+p
+
+# Save it
+ggsave("ecomm_by_income.png", plot = p, width = 8.1, height = 8, dpi = 300)
+
+
+library(ggplot2)
+
+# Flavored product sellers (only)
+df_flavored <- data.frame(
+  Ban_Status = c("Ban Present (Violation)", "No Ban"),
+  Count = c(11, 8)
+)
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+# Create tertiles
+ecomm_summary_data <- analysis_data %>%
+  mutate(
+    income_tertile = ntile(MdnHHnc, 3),
+    sdi_tertile = ntile(as.numeric(sdi), 3),
+    under21_tertile = ntile(Under21_per_cap, 3),
+    income = factor(income_tertile, labels = c("Low Income", "Mid Income", "High Income")),
+    sdi = factor(sdi_tertile, labels = c("Low SDI", "Mid SDI", "High SDI")),
+    youth = factor(under21_tertile, labels = c("Low Youth", "Mid Youth", "High Youth")),
+    policy = factor(flavor_ban, labels = c("No Flavor Ban", "Flavor Ban"))
+  ) %>%
+  select(has_ecomm, income, sdi, youth, policy)
+
+# Pivot and summarize
+df_long <- analysis_data %>%
+  pivot_longer(cols = c(income, sdi, youth, policy), names_to = "Category", values_to = "Group") %>%
+  group_by(Category, Group) %>%
+  summarise(
+    n = n(),
+    ecomm = sum(has_ecomm, na.rm = TRUE),
+    ecomm_rate = round(100 * ecomm / n, 1),
+    .groups = "drop"
+  )
+
+# Plot
+ggplot(df_long, aes(x = Group, y = ecomm_rate, fill = Category)) +
+  geom_col(color = "black", show.legend = FALSE) +
+  geom_text(aes(label = paste0(ecomm_rate, "%")), vjust = -0.5, size = 4) +
+  labs(
+    title = "E-Commerce Prevalence by Sociodemographic and Policy Factors",
+    x = NULL,
+    y = "Percent of Retailers with E-Commerce"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  ylim(0, max(df_long$ecomm_rate, na.rm = TRUE) + 5) +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
