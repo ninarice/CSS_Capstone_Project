@@ -138,9 +138,9 @@ st_write(SE_sf, "~/Documents/Capstone/SE.shp")
 savetest <- st_read("~/Documents/Capstone/SE.shp")
 
 
-###################
-#NORMALIZE SE DATA#
-###################
+######################
+# NORMALIZE SES DATA #
+######################
 
 SE_sf <- st_read("~/Documents/GitHub/CSS_Capstone_Project/SE_data/SE.shp")
 normalized_SE_sf <- SE_sf %>%
@@ -151,58 +151,55 @@ normalized_SE_sf <- SE_sf %>%
 st_write(normalized_SE_sf, "~/Documents/GitHub/CSS_Capstone_Project/normalized_SE_sf.shp")
 savetest <- st_read("~/Documents/GitHub/CSS_Capstone_Project/normalized_SE_sf.shp")
 
-#####################
-# PILOT DATA merged #
-#####################
+##############################
+### MERGE WITH RETAIL DATA ###
+##############################
 
-
-# Read the retailer data from CSV
+# Read finalized vape shop retailer data
 pilot <- read.csv("~/Downloads/Finalized E-commerce Vape Shops After Filtering B&C - List of Brick Retailers.csv")
 
-# Convert to sf object, assuming columns are named 'lat' and 'lon'
+# Convert retailer data to sf object
 pilot_ecomm <- st_as_sf(pilot, coords = c("lon", "lat"), crs = 4326, agr = "constant")
 
-# Transform the retailer data to match the CRS of the socioeconomic data
+# Transform to match CRS of normalized SE data
 pilot_ecomm <- st_transform(pilot_ecomm, st_crs(normalized_SE_sf))
 
-# Optionally isolate rows where e-commerce = 1
-# pilot_ecomm <- pilot_ecomm[pilot_ecomm$ecommerce_flag == 1, ]
+# Keep only retailers flagged as offering e-commerce
+pilot_ecomm <- pilot_ecomm[pilot_ecomm$ecommerce_flag == 1, ]
 
-# Find intersections between e-commerce locations and SE data
+# Identify intersections between e-commerce retailers and SE tracts
 intersections <- st_intersects(pilot_ecomm, normalized_SE_sf)
 
-# Notify if some intersections are empty
+# Warn if any retailers did not intersect
 if (any(lengths(intersections) == 0)) {
   message("Some retailers do not intersect with any census tracts.")
 }
 
-# Generate index dataframe for mapping manually
+# Generate mapping between each e-commerce retailer and intersected census tract
 index_df <- do.call(rbind, lapply(seq_along(intersections), function(i) {
   if (length(intersections[[i]]) > 0) {
     data.frame(retailer_index = i, tract_index = intersections[[i]])
   }
 }))
 
-# Merge attributes from socioeconomic data
+# Add tract index to SE attributes for joining
 attributes <- normalized_SE_sf %>%
-  mutate(tract_index = 1:n())  # Adding an index to join on
+  mutate(tract_index = 1:n())
 
-# Join attributes to the index dataframe
+# Join retailer-tract mapping with tract attributes
 mapped_data <- merge(index_df, attributes, by = "tract_index")
 
-# Join the mapped data with the retailer data
+# Join back to e-commerce retailer data
 poster_data <- merge(pilot_ecomm, mapped_data, by.x = "row.names", by.y = "retailer_index")
 
-# Identify point vs poly geoms
+# Rename and clean geometry columns
 poster_data <- poster_data %>%
   rename(retailer_geometry = geometry.x,
          tract_geometry = geometry.y)
 
-# Remove empty geometry column
 poster_data$geometry <- NULL
 
-# Convert to well-known text to preserve geometries in csv format 
-
+# Convert geometry to WKT for export
 poster_data_wkt <- poster_data %>%
   mutate(
     retailer_wkt = st_as_text(retailer_geometry),
@@ -210,14 +207,20 @@ poster_data_wkt <- poster_data %>%
   ) %>%
   select(-retailer_geometry, -tract_geometry)
 
+# Export processed data with geometry preserved as WKT for analysis or mapping
 write.csv(poster_data_wkt, "~/Documents/GitHub/CSS_Capstone_Project/pilot_ready.csv", row.names = FALSE)
 
+#########################
+### FINALIZE ANALYSIS ###
+#########################
 
+# Read in final analysis file
+analysis_data <- read_csv("~/Documents/GitHub/CSS_Capstone_Project/pilot_ready.csv")
 
+# Create binary indicator for e-commerce presence
+analysis_data <- analysis_data %>%
+  mutate(has_ecomm = as.numeric(
+    Do.they.have.a.website.listed.that.allows.you.to.buy.vaping.products.online...Allows.for.mail.delivery..curbside.pick.up.orders..etc..))
 
-
-
-
-
-
-
+# Save cleaned analysis dataset
+write.csv(analysis_data, "~/Documents/GitHub/CSS_Capstone_Project/pilot_ready.csv", row.names = FALSE)

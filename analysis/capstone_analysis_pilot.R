@@ -22,6 +22,12 @@ exp(coef(model_income))
 exp(confint(model_income))
 # Result: Higher income is significantly associated with higher odds of e-commerce (p = 0.0343).
 
+# rescale mdnhhnc to 10000 increase 
+analysis_data$MdnHHnc_k10 <- analysis_data$MdnHHnc / 10000  # Per $10k
+model_income_10000 <- glm(has_ecomm ~ MdnHHnc_k10 + sdi, data = analysis_data, family = binomial)
+exp(coef(model_income_10000))
+exp(confint(model_income_10000))
+
 # Logistic regression: SDI → e-commerce presence
 model_sdi <- glm(has_ecomm ~ sdi, data = analysis_data, family = "binomial")
 summary(model_sdi)
@@ -223,7 +229,7 @@ ecomm_summary_data <- analysis_data %>%
   select(has_ecomm, income, sdi, youth, policy)
 
 # Pivot and summarize
-df_long <- analysis_data %>%
+df_long <- ecomm_summary_data %>%
   pivot_longer(cols = c(income, sdi, youth, policy), names_to = "Category", values_to = "Group") %>%
   group_by(Category, Group) %>%
   summarise(
@@ -232,7 +238,6 @@ df_long <- analysis_data %>%
     ecomm_rate = round(100 * ecomm / n, 1),
     .groups = "drop"
   )
-
 # Plot
 ggplot(df_long, aes(x = Group, y = ecomm_rate, fill = Category)) +
   geom_col(color = "black", show.legend = FALSE) +
@@ -242,9 +247,192 @@ ggplot(df_long, aes(x = Group, y = ecomm_rate, fill = Category)) +
     x = NULL,
     y = "Percent of Retailers with E-Commerce"
   ) +
-  scale_fill_brewer(palette = "Set2") +
+  scale_fill_brewer(palette = "primary") +
   ylim(0, max(df_long$ecomm_rate, na.rm = TRUE) + 5) +
   theme_minimal(base_size = 13) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
+
+
+#### geospatial analysis
+
+# 1. Convert to sf using retailer WKT geometry
+analysis_data_sf <- st_as_sf(analysis_data, wkt = "retailer_wkt", crs = 2226)
+
+# 2. Drop rows with missing outcome or predictor
+analysis_data_sf <- analysis_data_sf[!is.na(analysis_data_sf$has_ecomm) & !is.na(analysis_data_sf$sdi), ]
+
+# 3. Convert to Spatial object for GWmodel
+analysis_sp <- as(analysis_data_sf, "Spatial")
+
+# 4. Bandwidth selection (adaptive bisquare kernel using AIC)
+bw <- bw.gwr(has_ecomm ~ sdi,
+             data = analysis_sp,
+             approach = "AIC",
+             kernel = "bisquare",
+             adaptive = TRUE)
+
+# 5. Run GWR
+gwr_result <- gwr.basic(has_ecomm ~ sdi,
+                        data = analysis_sp,
+                        bw = bw,
+                        kernel = "bisquare",
+                        adaptive = TRUE)
+
+# 6. View model diagnostics
+gwr_result$GW.diagnostic
+
+
+
+
+library(tmap)
+
+# Convert GWR result to sf object for mapping
+gwr_sf <- st_as_sf(gwr_result$SDF)
+
+# Make sure CRS matches (should be 2226, but just in case)
+normalized_SE_sf <- st_transform(normalized_SE_sf, crs = st_crs(gwr_sf))
+
+# Map tract boundaries + GWR results
+library(tmap)
+tmap_mode("view")
+
+tm_shape(normalized_SE_sf) +
+  tm_borders(col = "gray60") +
+  tm_shape(gwr_sf) +
+  tm_dots(col = "sdi",
+          palette = "RdBu",
+          style = "quantile",
+          size = 0.1,
+          title = "Local SDI Coefficient") +
+  tm_layout(main.title = "GWR: Spatial Variation in SDI Effect on E-Commerce")
+
+
+# Filter to San Diego only
+normalized_SE_sd <- normalized_SE_sf %>%
+  filter(County == "San Diego")  # or whatever the name is in your data
+
+
+tmap_mode("view")
+
+tm_shape(normalized_SE_sd) +
+  tm_borders(col = "gray60") +
+  tm_shape(gwr_sf) +
+  tm_dots(col = "sdi",
+          palette = "RdBu",
+          style = "quantile",
+          size = 0.3,  # was 0.1 before
+          title = "Local SDI Coefficient") +
+  tm_layout(main.title = "GWR: SDI Effect on E-Commerce (San Diego Only)")
+
+st_crs(normalized_SE_sf)
+st_crs(gwr_sf)
+
+
+
+
+
+# Basic plot to test visibility
+plot(st_geometry(gwr_sf), main = "GWR Retailer Points")
+
+# How many features?
+nrow(gwr_sf)
+
+# Show first few coordinates
+head(st_coordinates(gwr_sf))
+
+
+# Reproject both layers to WGS84 (EPSG:4326)
+gwr_sf_wgs <- st_transform(gwr_sf, 4326)
+tracts_wgs <- st_transform(normalized_SE_sf, 4326)
+
+# Plot both together
+library(tmap)
+tmap_mode("view")
+
+tm_shape(tracts_wgs) +
+  tm_borders(col = "gray70") +
+  tm_shape(gwr_sf_wgs) +
+  tm_dots(col = "sdi",
+          palette = "RdBu",
+          style = "quantile",
+          size = 0.6,
+          title = "Local SDI Coefficient") +
+  tm_layout(
+    main.title = "GWR: Local SDI Effect on E-Commerce",
+    legend.outside = TRUE
+  )
+
+
+unique(st_geometry_type(gwr_sf))
+summary(st_coordinates(gwr_sf))
+
+
+# Force tmap to use only the extent of the GWR points
+library(tmap)
+tmap_mode("view")
+
+tm_shape(gwr_sf) +
+  tm_dots(col = "sdi", palette = "RdBu", style = "quantile", size = 0.6) +
+  tm_layout(main.title = "JUST GWR Points")
+# Crop the tract layer to just the bounding box of the GWR points
+tracts_clipped <- st_crop(normalized_SE_sf, st_bbox(gwr_sf))
+
+tm_shape(tracts_clipped) +
+  tm_borders(col = "gray70") +
+  tm_shape(gwr_sf) +
+  tm_dots(col = "sdi", palette = "RdBu", style = "quantile", size = 0.6) +
+  tm_layout(main.title = "Clipped Tracts + GWR SDI Dots")
+# Force exact same CRS object from gwr_sf to normalized_SE_sf
+normalized_SE_sf <- st_transform(normalized_SE_sf, crs = st_crs(gwr_sf))
+tracts_clipped <- st_crop(normalized_SE_sf, st_bbox(gwr_sf))
+tmap_mode("view")
+
+tm_shape(tracts_clipped) +
+  tm_borders(col = "gray70") +
+  tm_shape(gwr_sf) +
+  tm_dots(col = "sdi", palette = "RdBu", style = "quantile", size = 0.6) +
+  tm_layout(main.title = "GWR SDI Coefficients on Clipped Tracts")
+
+
+length(unique(analysis_data$ApprxLc))  # Or whatever your column name is
+
+# median statistics comparing ecomm vs no ecomm census tracts
+analysis_data %>%
+  group_by(has_ecomm) %>%
+  summarize(
+    median_income = median(MdnHHnc_k10),
+    median_sdi = median(sdi),
+    median_under21 = median(Under21_per_cap),
+    median_white = median(White, na.rm = TRUE),
+    median_black = median(AfrcnAm, na.rm = TRUE),
+    median_hispanic = median(Hispanc, na.rm = TRUE),
+    median_nativeam = median(NativAm, na.rm = TRUE)
+  )
+
+# mean statistics comparing ecomm vs no ecomm census tracts
+analysis_data %>%
+  group_by(has_ecomm) %>%
+  summarize(
+    mean_income = mean(MdnHHnc_k10),
+    mean_sdi = mean(sdi),
+    mean_under21 = mean(Under21_per_cap),
+    mean_white = mean(White, na.rm = TRUE),
+    mean_black = mean(AfrcnAm, na.rm = TRUE),
+    mean_hispanic = mean(Hispanc, na.rm = TRUE),
+    mean_nativeam = mean(NativAm, na.rm = TRUE)
+  )
+
+# Filter for shops with e-commerce
+ecomm_shops <- analysis_data %>% filter(has_ecomm == 1)
+# Count how many are in "San Diego" (adjust this string to match your column exactly)
+n_sandiego <- sum(ecomm_shops$ApprxLc == "San Diego", na.rm = TRUE)
+# Total e-comm shops
+n_total_ecomm <- nrow(ecomm_shops)
+# Calculate % in San Diego
+percent_sandiego <- round((n_sandiego / n_total_ecomm) * 100, 1)
+# Print result
+cat("Percentage of e-commerce shops in San Diego:", percent_sandiego, "%\n")
+
+print(unique(ecomm_shops$ApprxLc))
