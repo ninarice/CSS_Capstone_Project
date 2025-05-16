@@ -1,0 +1,225 @@
+---
+title: "analysis_capstone_flavor"
+format: html
+editor: visual
+---
+
+## Quarto
+
+JOIN: pilot ready and df_combined_adjudicated
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+#Load dataset - pilot and content analysis 
+pilot <-read.csv("~/Desktop/pilot_ready (1).csv")
+content <- read.csv("~/Desktop/df_combined_adjudicated (1).csv")
+
+#only look at the observations in content that have a physical location and e-commerce (25) 
+content <- content %>% filter(dataset == "brick_click")
+
+#change column name to master_id in content df
+names(content)
+content <- content[-1, ] #got rid of questions row 
+names(content)[names(content) == "Q1"] <- "master_id"
+
+#make master_id integer
+content$master_id <- as.integer(content$master_id)
+
+
+
+```
+
+```{r}
+# Rename long column name with dplyr --> ecommerce
+pilot <- pilot %>%
+  rename(ecommerce = `Do.they.have.a.website.listed.that.allows.you.to.buy.vaping.products.online...Allows.for.mail.delivery..curbside.pick.up.orders..etc..`)
+
+```
+
+Just filter to look at those with websites:
+
+```{r}
+#JOIN content and pilot data 
+joined_df <- left_join(pilot, content, by = "master_id")
+
+#Just look at those observations with ecommerce
+has_ecomm <- joined_df %>% filter(`ecommerce` == 1)
+```
+
+```{r}
+# 25 retailers out of 37 with e-commerce have results from content analysis.  This is because 12 of the retailers with e-commerce did not provide delivery. They were pick up only. 
+
+
+#change the column name Q2A --> nvape_wflav
+# Question 2A: "Does the website sell nicotine vaping products advertised with FLAVOR descriptors?"
+joined_df <- joined_df %>% 
+  rename(sells_flav_vap = Q2A)
+```
+
+Question: Which municipalities were the e-commerce sites in?
+
+```{r}
+#Question: Which municipalities were the e-commerce sites in? 
+has_ecomm %>%
+  count(ApprxLc) %>%                      # Count occurrences of each unique ApprxLc
+  mutate(percent = round(100 * n / sum(n), 2))  # Calculate percent of total
+
+#majority in San Diego (54%, with other municiplaities making up < 6% each)
+```
+
+Question: How many stores sold flavored vaping products in jurisdictions where there is a flavor ban?
+
+```{r}
+
+
+# Number of stores that sold flavored vapes
+num_flav_vape <- nrow(joined_df %>% filter(sells_flav_vap == "Yes"))
+
+# Total number of stores from content analysis
+total_stores <- nrow(content)
+
+# Calculate percentage
+percent_flav_vape <- (num_flav_vape / total_stores) * 100
+
+# Print result
+print(paste0(round(percent_flav_vape, 1), "% of stores sold flavored vaping products online (", num_flav_vape, " out of ", total_stores, ")"))
+
+
+```
+
+```{r}
+library(ggplot2)
+
+# Create a data frame for the pie chart
+flav_sales_df <- data.frame(
+  Category = c("Sold Flavored Vapes", "Did Not Sell Flavored Vapes"),
+  Count = c(num_flav_vape, total_stores - num_flav_vape)
+)
+
+# Calculate percentages
+flav_sales_df$Percent <- round((flav_sales_df$Count / sum(flav_sales_df$Count)) * 100, 1)
+
+# Plot the pie chart
+ggplot(flav_sales_df, aes(x = "", y = Count, fill = Category)) +
+  geom_col(width = 1) +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = paste0(Percent, "%")),
+            position = position_stack(vjust = 0.5), size = 5) +
+  labs(title = "Proportion of Stores Selling Flavored Vaping Products",
+       fill = "Store Type") +
+  scale_fill_manual(values = c("Sold Flavored Vapes" = "#f39c12", 
+                               "Did Not Sell Flavored Vapes" = "#bdc3c7")) +
+  theme_void()
+```
+
+```{}
+```
+
+```{r}
+# Step 1: Filter to stores that sold flavored vapes
+sell_flav_vape <- joined_df %>%
+  filter(sells_flav_vap == "Yes")
+
+# Step 2: Count how many of these had a flavor ban
+num_flav_banned <- sell_flav_vape %>%
+  filter(flavor_ban == 1) %>%
+  nrow()
+
+# Step 3: Print number of banned stores
+print(num_flav_banned)  # Should print 11
+
+# Step 4: Calculate and print percent out of compliance
+percent_out_of_compliance <- (num_flav_banned / nrow(sell_flav_vape)) * 100
+print(paste0(round(percent_out_of_compliance, 1), "% of retailers that sold flavored vaping products were out of compliance with local flavor restrictions."))
+
+```
+
+```{r}
+
+# Define counts
+num_flav_banned <- sum(sell_flav_vape$flavor_ban == 1, na.rm = FALSE)
+num_flav_compliant <- nrow(sell_flav_vape) - num_flav_banned
+
+# Create a data frame
+compliance_df <- data.frame(
+  Status = c("Out of Compliance", "In Compliance"),
+  Count = c(num_flav_banned, num_flav_compliant)
+)
+
+# Add percentage
+compliance_df$Percent <- round((compliance_df$Count / sum(compliance_df$Count)) * 100, 1)
+
+# Plot
+ggplot(compliance_df, aes(x = "", y = Count, fill = Status)) +
+  geom_col(width = 1) +
+  coord_polar(theta = "y") +
+  geom_text(aes(label = paste0(Percent, "%")),
+            position = position_stack(vjust = 0.5), size = 5) +
+  labs(title = "Compliance with Local Flavor Bans",
+       fill = "Compliance Status") +
+  scale_fill_manual(values = c("Out of Compliance" = "#e74c3c", 
+                               "In Compliance" = "#2ecc71")) +
+  theme_void()
+
+
+```
+
+76% of delivery based e-commerce retailers sold flavored vapes, and over half of those (57.9%) did so in areas with local flavor bans indicating a potential compliance issue.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Define counts
+num_flav_banned <- sum(sell_flav_vape$flavor_ban == 1, na.rm = FALSE)
+num_flav_compliant <- nrow(sell_flav_vape) - num_flav_banned
+total <- nrow(sell_flav_vape)
+
+# Create data frame with percentages
+compliance_df <- data.frame(
+  Status = c("Out of Compliance", "In Compliance"),
+  Percent = c(num_flav_banned, num_flav_compliant) / total * 100
+)
+
+# Bar chart with percentages
+ggplot(compliance_df, aes(x = Status, y = Percent, fill = Status)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  geom_text(aes(label = paste0(round(Percent, 1), "%")), vjust = -0.5, size = 5) +
+  scale_fill_manual(values = c("Out of Compliance" = "#e74c3c", 
+                               "In Compliance" = "darkblue")) +
+  labs(title = "Delivery-Based Retailer Compliance with Flavor Ban Laws",
+       x = NULL,
+       y = "Percentage of Retailers") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+library(ggplot2)
+
+# Define counts
+num_flav_banned <- sum(sell_flav_vape$flavor_ban == 1, na.rm = FALSE)
+num_flav_compliant <- nrow(sell_flav_vape) - num_flav_banned
+
+# Create data frame
+compliance_df <- data.frame(
+  Status = c("Out of Compliance", "In Compliance"),
+  Count = c(num_flav_banned, num_flav_compliant)
+)
+
+# Bar chart
+ggplot(compliance_df, aes(x = Status, y = Count, fill = Status)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  geom_text(aes(label = Count), vjust = -0.5, size = 5) +
+  scale_fill_manual(values = c("Out of Compliance" = "#e74c3c", 
+                               "In Compliance" = "darkblue")) +
+  labs(title = "Delivery-Based Retailer Compliance with Flavor Ban Laws",
+       x = NULL,
+       y = "Number of Retailers") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+```
