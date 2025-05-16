@@ -32,9 +32,9 @@ options(tigris_use_cache = TRUE)  # Cache geographic data for faster loading
 options(tigris_class = "sf")      # Return spatial data as sf objects
 
 # ---- File Paths ----
-retailer_path <- "/Users/prosperityland/Documents/VapeMapApp/Finalized E-commerce Vape Shops After Filtering B&C.xlsx"
-zipcode_path <- "/Users/prosperityland/Documents/VapeMapApp/normalized_SE_sf.shp"
-flavor_ban_path <- "/Users/prosperityland/Downloads/Final_Flavor_Shp_File/CA_Flavor_Ban_ED.shp"
+retailer_path <- "Finalized E-commerce Vape Shops After Filtering B&C.xlsx"
+zipcode_path <- "normalized_SE_sf.shp"
+flavor_ban_path <- "Final_Flavor_Shp_File/CA_Flavor_Ban_ED.shp"
 
 #==============================================================================
 # HELPER FUNCTIONS
