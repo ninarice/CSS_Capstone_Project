@@ -212,7 +212,14 @@ poster_data_wkt <- poster_data %>%
 
 write.csv(poster_data_wkt, "~/Documents/GitHub/CSS_Capstone_Project/pilot_ready.csv", row.names = FALSE)
 
+####
 
+analysis_data <- read_csv("~/Documents/GitHub/CSS_Capstone_Project/pilot_ready.csv")
+# Create a new column for e-commerce (assumes 1 = yes, 0 = no)
+analysis_data <- analysis_data %>%
+  mutate(has_ecomm = as.numeric(
+    Do.they.have.a.website.listed.that.allows.you.to.buy.vaping.products.online...Allows.for.mail.delivery..curbside.pick.up.orders..etc..))
+write.csv(analysis_data, "~/Documents/GitHub/CSS_Capstone_Project/pilot_ready.csv", row.names = FALSE)
 
 
 
