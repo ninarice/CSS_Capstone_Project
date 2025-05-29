@@ -175,26 +175,29 @@ library(ggplot2)
 # Define counts
 num_flav_banned <- sum(sell_flav_vape$flavor_ban == 1, na.rm = FALSE)
 num_flav_compliant <- nrow(sell_flav_vape) - num_flav_banned
+total <- num_flav_banned + num_flav_compliant
 
-# Create data frame
+# Create data frame with percentages
 compliance_df <- data.frame(
   Status = c("Out of Compliance", "In Compliance"),
   Count = c(num_flav_banned, num_flav_compliant)
 )
+compliance_df$Percent <- compliance_df$Count / total * 100
 
-# Bar chart
-ggplot(compliance_df, aes(x = Status, y = Count, fill = Status)) +
+# Bar chart with percentage values
+ggplot(compliance_df, aes(x = Status, y = Percent, fill = Status)) +
   geom_bar(stat = "identity", width = 0.6) +
-  geom_text(aes(label = Count), vjust = -0.5, size = 5) +
+  geom_text(aes(label = paste0(round(Percent, 1), "%")), 
+            vjust = -0.5, size = 5) +
   scale_fill_manual(values = c("Out of Compliance" = "#e74c3c", 
                                "In Compliance" = "darkblue")) +
-  labs(title = "Delivery-Based Retailer Compliance with Flavor Ban Laws",
+  labs(title = "Flavor Ban Compliance amongst Delivery-Based \nRetailers Selling Flavored Products",
        x = NULL,
-       y = "Number of Retailers") +
+       y = "Percentage of Retailers") +
+  ylim(0, 60) +  # Give headroom for labels
   theme_minimal(base_size = 14) +
   theme(legend.position = "none")
-```
+ggsave("compliance_plot.png", width = 6, height = 6, dpi = 300)
 
-```{r}
 
 ```

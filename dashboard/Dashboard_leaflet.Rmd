@@ -4,747 +4,490 @@ format: html
 editor: visual
 ---
 
-################################################################################
-# San Diego Vape Retailer Interactive Map Application
-# 
-# This application visualizes vape retailers across San Diego County
-# along with various demographic and policy data layers.
-################################################################################
+################################################################################ 
 
-#==============================================================================
-# SETUP AND CONFIGURATION
-#==============================================================================
+# San Diego Vape Retailer Interactive Map Application
+
+# 
+
+# This application visualizes vape retailers across San Diego County
+
+# along with various demographic and policy data layers.
+
+################################################################################ 
+
+#============================================================================== \# SETUP AND CONFIGURATION #==============================================================================
 
 # ---- Load Required Libraries ----
-library(tigris)       # For accessing geographic data
-library(leaflet)      # For interactive maps
-library(sf)           # For handling spatial data
-library(dplyr)        # For data manipulation
-library(scales)       # For formatting numbers
-library(htmltools)    # For HTML generation
-library(readxl)       # For reading Excel files
-library(htmlwidgets)  # For widget customization
-library(RColorBrewer) # For color palettes
-library(lubridate)    # For date handling
+
+library(tigris) \# For accessing geographic data library(leaflet) \# For interactive maps library(sf) \# For handling spatial data library(dplyr) \# For data manipulation library(scales) \# For formatting numbers library(htmltools) \# For HTML generation library(readxl) \# For reading Excel files library(htmlwidgets) \# For widget customization library(RColorBrewer) \# For color palettes library(lubridate) \# For date handling
 
 # Configure tigris package settings
-options(tigris_use_cache = TRUE)  # Cache geographic data for faster loading
-options(tigris_class = "sf")      # Return spatial data as sf objects
+
+options(tigris_use_cache = TRUE) \# Cache geographic data for faster loading options(tigris_class = "sf") \# Return spatial data as sf objects
 
 # ---- File Paths ----
-retailer_path <- "Finalized E-commerce Vape Shops After Filtering B&C.xlsx"
-zipcode_path <- "normalized_SE_sf.shp"
-flavor_ban_path <- "Final_Flavor_Shp_File/CA_Flavor_Ban_ED.shp"
 
-#==============================================================================
-# HELPER FUNCTIONS
-#==============================================================================
+retailer_path \<- "Finalized E-commerce Vape Shops After Filtering B&C.xlsx" zipcode_path \<- "normalized_SE_sf.shp" flavor_ban_path \<- "Final_Flavor_Shp_File/CA_Flavor_Ban_ED.shp"
+
+#============================================================================== \# HELPER FUNCTIONS #==============================================================================
 
 # Replace -999 values with NA (common placeholder for missing data)
-replace_neg999 <- function(x) {
-  x <- as.numeric(x)
-  x[x == -999] <- NA
-  return(x)
-}
+
+replace_neg999 \<- function(x) { x \<- as.numeric(x) x\[x == -999\] \<- NA return(x) }
 
 # Ensure percentage values are between 0 and 100
-clean_percentage <- function(x) {
-  pmin(pmax(replace_neg999(x), 0), 100)
-}
+
+clean_percentage \<- function(x) { pmin(pmax(replace_neg999(x), 0), 100) }
 
 # Format values based on field type for popups and tooltips
-format_field <- function(value, field_name) {
-  if (field_name == "MdnHHnc") {
-    return(paste0("$", comma(value)))
-  } else if (field_name %in% c("White", "AfrcnAm", "NativAm", "OthrMlt", "PovrtyP", "Hispanc", "SDI_scr")) {
-    return(paste0(round(value, 1), "%"))
-  } else if (field_name == "YouthProp") {
-    return(percent(value, accuracy = 0.1))
-  } else {
-    return(round(value, 3))
-  }
-}
+
+format_field \<- function(value, field_name) { if (field_name == "MdnHHnc") { return(paste0("\$", comma(value))) } else if (field_name %in% c("White", "AfrcnAm", "NativAm", "OthrMlt", "PovrtyP", "Hispanc", "SDI_scr")) { return(paste0(round(value, 1), "%")) } else if (field_name == "YouthProp") { return(percent(value, accuracy = 0.1)) } else { return(round(value, 3)) } }
 
 # Add a thematic layer to the map with consistent formatting
-add_thematic_layer <- function(map, data, field, palette_func, group_name, label) {
-  map %>%
-    addPolygons(
-      data = data,
-      fillColor = ~palette_func(data[[field]]),
-      color = "white",
-      weight = 0.5,
-      fillOpacity = 0.8,
-      popup = ~paste0("<b>", label, ":</b> ", format_field(data[[field]], field)),
-      group = group_name,
-      options = pathOptions(pane = "polygons")
-    ) %>%
-    hideGroup(group_name)  # Hide thematic layers by default
-}
+
+add_thematic_layer \<- function(map, data, field, palette_func, group_name, label) { map %\>% addPolygons( data = data, fillColor = \~palette_func(data\[\[field\]\]), color = "white", weight = 0.5, fillOpacity = 0.8, popup = \~paste0("<b>", label, ":</b> ", format_field(data\[\[field\]\], field)), group = group_name, options = pathOptions(pane = "polygons") ) %\>% hideGroup(group_name) \# Hide thematic layers by default }
 
 # Create consistent popup content for retailer markers
-create_popup_content <- function(retailer) {
-  content <- paste0(
-    "<div style='min-width: 200px;'>",
-    "<b>Name:</b> ", retailer$name, "<br>"
-  )
-  
-  # Add website link if available
-  if (!is.na(retailer$website)) {
-    content <- paste0(content, "<b>Website:</b> <a href='", retailer$website, "' target='_blank'>", retailer$website, "</a><br>")
-  }
-  
-  # Add Google Maps link if available
-  if (!is.na(retailer$place_url)) {
-    content <- paste0(content, "<b>Google Maps:</b> <a href='", retailer$place_url, "' target='_blank'>View on Google Maps</a><br>")
-  }
-  
-  # Add Yelp link if available
-  if (!is.na(retailer$yelp_url)) {
-    content <- paste0(content, "<b>Yelp:</b> <a href='", retailer$yelp_url, "' target='_blank'>View on Yelp</a><br>")
-  }
 
-  # Add online sales information
-  # Use a variable to safely access the column with spaces in the name
-  col_website_online <- "Do they have a website listed that allows you to buy vaping products online? (Allows for mail delivery, curbside pick up orders, etc.)"
+create_popup_content \<- function(retailer) { content \<- paste0( "
 
-  if (retailer[[col_website_online]] == 1) {
-    content <- paste0(content, "<b>Online Sales:</b> Yes<br>")
-  } else {
-    content <- paste0(content, "<b>Online Sales:</b> No<br>")
-  }
-  
-  content <- paste0(content, "</div>")
-  return(content)
-}
+::: {style="min-width: 200px;"}
+", "<b>Name:</b> ", retailer\$name, "<br>" )
 
-#==============================================================================
-# DATA LOADING AND PREPARATION
-#==============================================================================
+\# Add website link if available if (!is.na(retailer$website)) {
+    content <- paste0(content, "<b>Website:</b> <a href='", retailer$website, "' target='\_blank'\>", retailer\$website, "</a><br>") }
+
+\# Add Google Maps link if available if (!is.na(retailer$place_url)) {
+    content <- paste0(content, "<b>Google Maps:</b> <a href='", retailer$place_url, "' target='\_blank'\>View on Google Maps</a><br>") }
+
+\# Add Yelp link if available if (!is.na(retailer$yelp_url)) {
+    content <- paste0(content, "<b>Yelp:</b> <a href='", retailer$yelp_url, "' target='\_blank'\>View on Yelp</a><br>") }
+
+\# Add online sales information \# Use a variable to safely access the column with spaces in the name col_website_online \<- "Do they have a website listed that allows you to buy vaping products online? (Allows for mail delivery, curbside pick up orders, etc.)"
+
+if (retailer\[\[col_website_online\]\] == 1) { content \<- paste0(content, "<b>Online Sales:</b> Yes<br>") } else { content \<- paste0(content, "<b>Online Sales:</b> No<br>") }
+
+content \<- paste0(content, "
+:::
+
+") return(content) }
+
+#============================================================================== \# DATA LOADING AND PREPARATION #==============================================================================
 
 # Disable S2 spherical geometry (used for handling features that cross the antimeridian)
+
 sf_use_s2(FALSE)
 
-#--------------------------------------
-# Load Geographic Base Data
-#--------------------------------------
+#-------------------------------------- \# Load Geographic Base Data #--------------------------------------
 
 # Load San Diego County boundary
-county_boundary <- counties(state = "CA", cb = TRUE, class = "sf") %>%
-  filter(NAME == "San Diego") %>%
-  st_transform(crs = 4326)  # Transform to WGS84 coordinates
+
+county_boundary \<- counties(state = "CA", cb = TRUE, class = "sf") %\>% filter(NAME == "San Diego") %\>% st_transform(crs = 4326) \# Transform to WGS84 coordinates
 
 # Load zipcode data (which contains demographic info)
-zipcode_data <- st_read(zipcode_path) %>%
-  filter(County == "San Diego") %>%
-  st_transform(crs = 4326)
 
-#--------------------------------------
-# Clean and Transform Demographic Data
-#--------------------------------------
+zipcode_data \<- st_read(zipcode_path) %\>% filter(County == "San Diego") %\>% st_transform(crs = 4326)
+
+#-------------------------------------- \# Clean and Transform Demographic Data #--------------------------------------
 
 # Prepare demographic data with calculated fields
-sd_county_data <- zipcode_data %>%
-  mutate(
-    MdnHHnc = as.numeric(MdnHHnc),
-    NnHspnW = as.numeric(NnHspnW),
-    # Calculate youth proportion (under 21 divided by total population)
-    YouthProp = ifelse(TotPp19 > 0, PpltU21 / TotPp19, NA_real_),
-    # Log transform population for visualization
-    LogTotPp19 = ifelse(!is.na(TotPp19) & TotPp19 > 0, log10(TotPp19), NA_real_),
-    # Clean up invalid values
-    TotPp19 = ifelse(TotPp19 <= 0, NA, TotPp19),
-    MdnHHnc = ifelse(MdnHHnc < 0, NA, MdnHHnc),
-    # Clean percentage fields
-    Hispanc = clean_percentage(Hispanc),
-    White = clean_percentage(White),
-    AfrcnAm = clean_percentage(AfrcnAm),
-    NativAm = clean_percentage(NativAm),
-    OthrMlt = clean_percentage(OthrMlt),
-    PovrtyP = clean_percentage(PovrtyP)
-  )
+
+sd_county_data \<- zipcode_data %\>% mutate( MdnHHnc = as.numeric(MdnHHnc), NnHspnW = as.numeric(NnHspnW), \# Calculate youth proportion (under 21 divided by total population) YouthProp = ifelse(TotPp19 \> 0, PpltU21 / TotPp19, NA_real\_), \# Log transform population for visualization LogTotPp19 = ifelse(!is.na(TotPp19) & TotPp19 \> 0, log10(TotPp19), NA_real\_), \# Clean up invalid values TotPp19 = ifelse(TotPp19 \<= 0, NA, TotPp19), MdnHHnc = ifelse(MdnHHnc \< 0, NA, MdnHHnc), \# Clean percentage fields Hispanc = clean_percentage(Hispanc), White = clean_percentage(White), AfrcnAm = clean_percentage(AfrcnAm), NativAm = clean_percentage(NativAm), OthrMlt = clean_percentage(OthrMlt), PovrtyP = clean_percentage(PovrtyP) )
 
 # Set map boundaries and zoom levels
-sd_bounds <- st_bbox(county_boundary)
-min_zoom <- 7
-max_zoom <- 30
-padding_factor <- 0.2  # Add padding around the county boundary
 
-#--------------------------------------
-# Load and Prepare Retailer Data
-#--------------------------------------
+sd_bounds \<- st_bbox(county_boundary) min_zoom \<- 7 max_zoom \<- 30 padding_factor \<- 0.2 \# Add padding around the county boundary
+
+#-------------------------------------- \# Load and Prepare Retailer Data #--------------------------------------
 
 # Define column names with spaces for consistent reference
-col_confirms_vape <- "Can you confirm that this shop sells vaping products from the yelp or google maps urls or from its website?"
-col_website_online <- "Do they have a website listed that allows you to buy vaping products online? (Allows for mail delivery, curbside pick up orders, etc.)"
+
+col_confirms_vape \<- "Can you confirm that this shop sells vaping products from the yelp or google maps urls or from its website?" col_website_online \<- "Do they have a website listed that allows you to buy vaping products online? (Allows for mail delivery, curbside pick up orders, etc.)"
 
 # Load retailer data and clean up
-retailer_data <- read_excel(retailer_path) %>%
-  mutate(
-    # Create a consolidated name field
-    name = coalesce(place_name, yelp_name),
-    # Create consolidated fields for links and references
-    website = coalesce(`place_website (hyperlinked)`, place_website, `yelp_website (hyperlinked)`, yelp_website),
-    place_url = coalesce(`place_url (hyperlinked)`, place_url),
-    yelp_url = coalesce(`yelp_url (hyperlinked)`, yelp_url),
-    # Ensure lat/lon are numeric
-    lat = as.numeric(lat),
-    lon = as.numeric(lon)
-  ) %>%
-  filter(!is.na(lon) & !is.na(lat))  # Remove entries without coordinates
+
+retailer_data \<- read_excel(retailer_path) %\>% mutate( \# Create a consolidated name field name = coalesce(place_name, yelp_name), \# Create consolidated fields for links and references website = coalesce(`place_website (hyperlinked)`, place_website, `yelp_website (hyperlinked)`, yelp_website), place_url = coalesce(`place_url (hyperlinked)`, place_url), yelp_url = coalesce(`yelp_url (hyperlinked)`, yelp_url), \# Ensure lat/lon are numeric lat = as.numeric(lat), lon = as.numeric(lon) ) %\>% filter(!is.na(lon) & !is.na(lat)) \# Remove entries without coordinates
 
 # Filter confirmed vape retailers and categorize by online sales capability
-vape_retailers <- retailer_data %>%
-  filter(!!sym(col_confirms_vape) == 1) %>%
-  mutate(has_website = !!sym(col_website_online) == 1)
+
+vape_retailers \<- retailer_data %\>% filter(!!sym(col_confirms_vape) == 1) %\>% mutate(has_website = !!sym(col_website_online) == 1)
 
 # Split retailers by online sales capability
-vape_only_retailers <- vape_retailers %>% filter(!has_website)
-vape_online_retailers <- vape_retailers %>% filter(has_website)
 
-#--------------------------------------
-# Load and Prepare Flavor Ban Data
-#--------------------------------------
+vape_only_retailers \<- vape_retailers %\>% filter(!has_website) vape_online_retailers \<- vape_retailers %\>% filter(has_website)
+
+#-------------------------------------- \# Load and Prepare Flavor Ban Data #--------------------------------------
 
 # Try to load flavor ban data, with error handling if file doesn't exist
-flavor_ban <- tryCatch({
-  st_read(flavor_ban_path)
-}, error = function(e) {
-  warning("Flavor ban data not available. Skipping flavor ban layer.")
-  return(NULL)
-})
+
+flavor_ban \<- tryCatch({ st_read(flavor_ban_path) }, error = function(e) { warning("Flavor ban data not available. Skipping flavor ban layer.") return(NULL) })
 
 # Clean up flavor ban data if available
-if (!is.null(flavor_ban)) {
-  flavor_ban <- flavor_ban %>%
-    filter(!COASTAL %in% c("bay", "ocean")) %>%  # Remove water features
-    st_transform(4326) %>%                       # Transform to WGS84
-    mutate(
-      ban_status = ifelse(is.na(FB_Effecti), "No Ban", "Ban Effective"),
-      COUNTY = as.character(COUNTY),
-      PLACE_NAME = as.character(PLACE_NAME),
-      ban_status = as.character(ban_status)
-    )
 
-  # Filter for San Diego County and ensure valid geometries
-  flavor_ban_sd <- flavor_ban %>%
-    filter(COUNTY == "San Diego County") %>%
-    st_make_valid()
+if (!is.null(flavor_ban)) { flavor_ban \<- flavor_ban %\>% filter(!COASTAL %in% c("bay", "ocean")) %\>% \# Remove water features st_transform(4326) %\>% \# Transform to WGS84 mutate( ban_status = ifelse(is.na(FB_Effecti), "No Ban", "Ban Effective"), COUNTY = as.character(COUNTY), PLACE_NAME = as.character(PLACE_NAME), ban_status = as.character(ban_status) )
 
-  # Separate counties and cities (different ban jurisdictions)
-  counties <- flavor_ban_sd %>% filter(PLACE_NAME == COUNTY)
-  cities <- flavor_ban_sd %>% filter(PLACE_NAME != COUNTY)
+\# Filter for San Diego County and ensure valid geometries flavor_ban_sd \<- flavor_ban %\>% filter(COUNTY == "San Diego County") %\>% st_make_valid()
 
-  # Define color palettes for ban status
-  pal_counties <- colorFactor(palette = c("#A5D6A7"), domain = "Ban Effective")
-  pal_cities <- colorFactor(palette = c("#228B22", "#C62828"), domain = c("No Ban", "Ban Effective"))
-}
+\# Separate counties and cities (different ban jurisdictions) counties \<- flavor_ban_sd %\>% filter(PLACE_NAME == COUNTY) cities \<- flavor_ban_sd %\>% filter(PLACE_NAME != COUNTY)
 
-#==============================================================================
-# MAP VISUALIZATION SETUP
-#==============================================================================
+\# Define color palettes for ban status pal_counties \<- colorFactor(palette = c("#A5D6A7"), domain = "Ban Effective") pal_cities \<- colorFactor(palette = c("#228B22", "#C62828"), domain = c("No Ban", "Ban Effective")) }
 
-#--------------------------------------
-# Define Marker Icons
-#--------------------------------------
+#============================================================================== \# MAP VISUALIZATION SETUP #==============================================================================
+
+#-------------------------------------- \# Define Marker Icons #--------------------------------------
 
 # Blue markers for all vape retailers
-blueIcon <- icons(
-  iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png",
-  iconWidth = 20, iconHeight = 32,
-  iconAnchorX = 10, iconAnchorY = 32,
-  popupAnchorX = 0, popupAnchorY = -30
-)
+
+blueIcon \<- icons( iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png", iconWidth = 20, iconHeight = 32, iconAnchorX = 10, iconAnchorY = 32, popupAnchorX = 0, popupAnchorY = -30 )
 
 # Red markers for online retailers
-redIcon <- icons(
-  iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-  iconWidth = 20, iconHeight = 32,
-  iconAnchorX = 10, iconAnchorY = 32,
-  popupAnchorX = 0, popupAnchorY = -30
-)
 
-#--------------------------------------
-# Build Base Map with Panes
-#--------------------------------------
+redIcon \<- icons( iconUrl = "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png", iconWidth = 20, iconHeight = 32, iconAnchorX = 10, iconAnchorY = 32, popupAnchorX = 0, popupAnchorY = -30 )
 
-map <- leaflet(options = leafletOptions(
-  preferCanvas = TRUE,  # Improves performance for many markers
-  minZoom = min_zoom,
-  maxZoom = max_zoom,
-  maxBounds = list(
-    list(sd_bounds[2] - padding_factor, sd_bounds[1] - padding_factor),
-    list(sd_bounds[4] + padding_factor, sd_bounds[3] + padding_factor)
-  )
-)) %>%
-  # Add base tile layer
-  addProviderTiles("CartoDB.Positron") %>%
-  # Create map panes for layering control (higher zIndex = on top)
-  addMapPane("retailers", zIndex = 420) %>%
-  addMapPane("polygons", zIndex = 410) %>%
-  addMapPane("boundary", zIndex = 415) %>%
-  addMapPane("flavor_ban", zIndex = 412)
+#-------------------------------------- \# Build Base Map with Panes #--------------------------------------
+
+map \<- leaflet(options = leafletOptions( preferCanvas = TRUE, \# Improves performance for many markers minZoom = min_zoom, maxZoom = max_zoom, maxBounds = list( list(sd_bounds\[2\] - padding_factor, sd_bounds\[1\] - padding_factor), list(sd_bounds\[4\] + padding_factor, sd_bounds\[3\] + padding_factor) ) )) %\>% \# Add base tile layer addProviderTiles("CartoDB.Positron") %\>% \# Create map panes for layering control (higher zIndex = on top) addMapPane("retailers", zIndex = 420) %\>% addMapPane("polygons", zIndex = 410) %\>% addMapPane("boundary", zIndex = 415) %\>% addMapPane("flavor_ban", zIndex = 412)
 
 # Add empty legend container (will be filled dynamically)
-map <- map %>%
-  addControl(
-    html = "<div id='legend' style='background:white;padding:10px;border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,0.3);'></div>",
-    position = "bottomleft"
-  )
 
-#--------------------------------------
-# Add Thematic Layers
-#--------------------------------------
+map \<- map %\>% addControl( html = "
+
+::: {#legend style="background:white;padding:10px;border-radius:5px;box-shadow:0 1px 5px rgba(0,0,0,0.3);"}
+:::
+
+", position = "bottomleft" )
+
+#-------------------------------------- \# Add Thematic Layers #--------------------------------------
 
 # Configure all thematic layers with consistent settings
-layer_config <- list(
-  list(id = "sdi", name = "Social Deprivation Index", field = "SDI_scr", palette = "RdPu", label = "Social Deprivation Index"),
-  list(id = "poverty", name = "Poverty Index", field = "PovrtyP", palette = "YlOrBr", label = "Poverty Index"),
-  list(id = "income", name = "Median Household Income", field = "MdnHHnc", palette = "YlGnBu", label = "Median Household Income"),
-  list(id = "youth", name = "Youth Proportion (Under 21)", field = "YouthProp", palette = "PuBuGn", label = "Youth Proportion (Under 21)"),
-  list(id = "white", name = "Percent White", field = "White", palette = "Greens", label = "Percent White"),
-  list(id = "black", name = "Percent African American", field = "AfrcnAm", palette = "OrRd", label = "Percent African American"),
-  list(id = "native", name = "Percent Native American", field = "NativAm", palette = "Reds", label = "Percent Native American"),
-  list(id = "other", name = "Percent Other/Multiracial", field = "OthrMlt", palette = "BuGn", label = "Percent Other/Multiracial")
-)
+
+layer_config \<- list( list(id = "sdi", name = "Social Deprivation Index", field = "SDI_scr", palette = "RdPu", label = "Social Deprivation Index"), list(id = "poverty", name = "Poverty Index", field = "PovrtyP", palette = "YlOrBr", label = "Poverty Index"), list(id = "income", name = "Median Household Income", field = "MdnHHnc", palette = "YlGnBu", label = "Median Household Income"), list(id = "youth", name = "Youth Proportion (Under 21)", field = "YouthProp", palette = "PuBuGn", label = "Youth Proportion (Under 21)"), list(id = "white", name = "Percent White", field = "White", palette = "Greens", label = "Percent White"), list(id = "black", name = "Percent African American", field = "AfrcnAm", palette = "OrRd", label = "Percent African American"), list(id = "native", name = "Percent Native American", field = "NativAm", palette = "Reds", label = "Percent Native American"), list(id = "other", name = "Percent Other/Multiracial", field = "OthrMlt", palette = "BuGn", label = "Percent Other/Multiracial") )
 
 # Store palette and label information for JavaScript access
-palette_lookup <- list()
-label_lookup <- list()
+
+palette_lookup \<- list() label_lookup \<- list()
 
 # Add each thematic layer to the map
-for (cfg in layer_config) {
-  # Create appropriate color palette based on field type
-  palette_func <- if (cfg$field %in% c("White", "AfrcnAm", "NativAm", "OthrMlt", "PovrtyP", "SDI_scr")) {
-    colorNumeric(cfg$palette, domain = c(0, 100))
-  } else {
-    colorNumeric(cfg$palette, domain = range(sd_county_data[[cfg$field]], na.rm = TRUE))
-  }
-  
-  # Store palette for legend creation
-  palette_lookup[[cfg$name]] <- palette_func
-  label_lookup[[cfg$name]] <- cfg$label
-  
-  # Add layer to map (hidden by default)
-  map <- add_thematic_layer(map, sd_county_data, cfg$field, palette_func, cfg$name, cfg$label)
-}
 
-#--------------------------------------
-# Add County Boundary
-#--------------------------------------
+for (cfg in layer_config) { \# Create appropriate color palette based on field type palette_func \<- if (cfg$field %in% c("White", "AfrcnAm", "NativAm", "OthrMlt", "PovrtyP", "SDI_scr")) {
+    colorNumeric(cfg$palette, domain = c(0, 100)) } else { colorNumeric(cfg$palette, domain = range(sd_county_data[[cfg$field\]\], na.rm = TRUE)) }
 
-map <- map %>%
-  addPolylines(
-    data = county_boundary,
-    color = "#888888",
-    weight = 1.5,
-    opacity = 0.8,
-    group = "San Diego Border",
-    options = pathOptions(pane = "boundary")
-  )
+\# Store palette for legend creation palette_lookup\[\[cfg$name]] <- palette_func
+  label_lookup[[cfg$name\]\] \<- cfg\$label
 
-#--------------------------------------
-# Add Flavor Ban Layers (if available)
-#--------------------------------------
+\# Add layer to map (hidden by default) map \<- add_thematic_layer(map, sd_county_data, cfg$field, palette_func, cfg$name, cfg\$label) }
 
-if (!is.null(flavor_ban)) {
-  # Create separate map panes for layering
-  map <- map %>%
-    addMapPane("flavor_ban_county", zIndex = 411) %>% # Lower z-index for county (unincorporated)
-    addMapPane("flavor_ban_cities", zIndex = 413)     # Higher z-index for cities (incorporated)
+#-------------------------------------- \# Add County Boundary #--------------------------------------
 
-  # Add counties (unincorporated areas) FIRST - so they're on bottom
-  if (nrow(counties) > 0) {
-    map <- map %>%
-      addPolygons(
-        data = counties,
-        fillColor = ~pal_counties(ban_status),
-        weight = 0.5,          # Reduced border weight
-        color = "#555555",     # Lighter border color
-        fillOpacity = 0.5,
-        popup = ~paste0("<b>County (Unincorporated):</b> ", COUNTY, "<br>Status: ", ban_status),
-        group = "Flavor Ban",
-        options = pathOptions(pane = "flavor_ban_county")
-      )
-  }
+map \<- map %\>% addPolylines( data = county_boundary, color = "#888888", weight = 1.5, opacity = 0.8, group = "San Diego Border", options = pathOptions(pane = "boundary") )
 
-  # Add cities (incorporated areas) SECOND - so they're on top
-  if (nrow(cities) > 0) {
-    map <- map %>%
-      addPolygons(
-        data = cities,
-        fillColor = ~pal_cities(ban_status),
-        weight = 0.5,          # Reduced border weight
-        color = "#555555",     # Lighter border color
-        fillOpacity = 0.7,
-        popup = ~paste0(
-          "<b>City:</b> ", PLACE_NAME,
-          "<br>Status: ", ban_status,
-          ifelse(!is.na(FB_Effecti), paste0("<br>Ban Date: ", FB_Effecti), "")
-        ),
-        group = "Flavor Ban",
-        options = pathOptions(pane = "flavor_ban_cities")
-      )
-  }
+#-------------------------------------- \# Add Flavor Ban Layers (if available) #--------------------------------------
 
-  # Hide flavor ban layer by default
-  map <- map %>% hideGroup("Flavor Ban")
+if (!is.null(flavor_ban)) { \# Create separate map panes for layering map \<- map %\>% addMapPane("flavor_ban_county", zIndex = 411) %\>% \# Lower z-index for county (unincorporated) addMapPane("flavor_ban_cities", zIndex = 413) \# Higher z-index for cities (incorporated)
 
-  # Add Policy Clarification Note (hidden by default)
-  flavor_ban_note <- tags$div(
+\# Add counties (unincorporated areas) FIRST - so they're on bottom if (nrow(counties) \> 0) { map \<- map %\>% addPolygons( data = counties, fillColor = \~pal_counties(ban_status), weight = 0.5, \# Reduced border weight color = "#555555", \# Lighter border color fillOpacity = 0.5, popup = \~paste0("<b>County (Unincorporated):</b> ", COUNTY, "<br>Status: ", ban_status), group = "Flavor Ban", options = pathOptions(pane = "flavor_ban_county") ) }
+
+\# Add cities (incorporated areas) SECOND - so they're on top if (nrow(cities) \> 0) { map \<- map %\>% addPolygons( data = cities, fillColor = \~pal_cities(ban_status), weight = 0.5, \# Reduced border weight color = "#555555", \# Lighter border color fillOpacity = 0.7, popup = \~paste0( "<b>City:</b> ", PLACE_NAME, "<br>Status: ", ban_status, ifelse(!is.na(FB_Effecti), paste0("<br>Ban Date: ", FB_Effecti), "") ), group = "Flavor Ban", options = pathOptions(pane = "flavor_ban_cities") ) }
+
+\# Hide flavor ban layer by default map \<- map %\>% hideGroup("Flavor Ban")
+
+\# Add Policy Clarification Note (hidden by default) flavor_ban_note \<- tags$div(
     id = "flavor_ban_note",
     style = "display:none; background:white; padding:8px; border-radius:6px; font-size:13px; box-shadow: 0 0 6px rgba(0,0,0,0.3); max-width:280px;",
-    tags$b("Note:"), " Incorporated cities in San Diego County may opt out of county bans. The county ban applies only to unincorporated areas unless a city passes its own ordinance."
-  )
+    tags$b("Note:"), " Incorporated cities in San Diego County may opt out of county bans. The county ban applies only to unincorporated areas unless a city passes its own ordinance." )
 
-  map <- map %>% addControl(html = HTML(as.character(flavor_ban_note)), position = "topright")
-}
+map \<- map %\>% addControl(html = HTML(as.character(flavor_ban_note)), position = "topright") }
 
-#--------------------------------------
-# Add Retailer Markers
-#--------------------------------------
+#-------------------------------------- \# Add Retailer Markers #--------------------------------------
 
 # Create popup content for all retailers
-popups <- lapply(1:nrow(vape_retailers), function(i) {
-  create_popup_content(vape_retailers[i,])
-})
+
+popups \<- lapply(1:nrow(vape_retailers), function(i) { create_popup_content(vape_retailers\[i,\]) })
 
 # Add all vape retailers layer (blue markers)
-map <- map %>%
-  addMarkers(
-    data = vape_retailers,
-    ~lon, ~lat,
-    icon = blueIcon,
-    popup = popups,
-    group = "All Vape Retailers",
-    options = pathOptions(pane = "retailers"),
-    popupOptions = popupOptions(offset = c(0, -30))
-  )
+
+map \<- map %\>% addMarkers( data = vape_retailers, \~lon, \~lat, icon = blueIcon, popup = popups, group = "All Vape Retailers", options = pathOptions(pane = "retailers"), popupOptions = popupOptions(offset = c(0, -30)) )
 
 # Add online retailers layer (red markers)
-map <- map %>%
-  addMarkers(
-    data = vape_online_retailers,
-    ~lon, ~lat,
-    icon = redIcon,
-    popup = lapply(1:nrow(vape_online_retailers), function(i) {
-      create_popup_content(vape_online_retailers[i,])
-    }),
-    group = "Online Vape Retailers",
-    options = pathOptions(pane = "retailers"),
-    popupOptions = popupOptions(offset = c(0, -30))
-  )
 
-#==============================================================================
-# USER INTERFACE ENHANCEMENTS
-#==============================================================================
+map \<- map %\>% addMarkers( data = vape_online_retailers, \~lon, \~lat, icon = redIcon, popup = lapply(1:nrow(vape_online_retailers), function(i) { create_popup_content(vape_online_retailers\[i,\]) }), group = "Online Vape Retailers", options = pathOptions(pane = "retailers"), popupOptions = popupOptions(offset = c(0, -30)) )
 
-#--------------------------------------
-# Create Layer Control Panel
-#--------------------------------------
+#============================================================================== \# USER INTERFACE ENHANCEMENTS #==============================================================================
+
+#-------------------------------------- \# Create Layer Control Panel #--------------------------------------
 
 # Build HTML sidebar for layer controls
-layer_panel_html <- tags$div(
-  class = "layer-panel",
-  style = "background:white; padding:10px; border-radius:5px; box-shadow:0 1px 5px rgba(0,0,0,0.3); max-height:400px; overflow-y:auto; font-size:14px;",
-  
-  # Retailer layers section
-  tags$details(open = TRUE,
-    tags$summary("RETAILERS"),
-    tags$div(
-      tags$label(tags$input(type = "checkbox", id = "all_retailers_layer", checked = TRUE), " All Retailers"), tags$br(),
-      tags$label(tags$input(type = "checkbox", id = "online_retailers_layer", checked = FALSE), " Online Retailers (Red)")
-    )
-  ),
-  
-  # Flavor ban section (if data is available)
-  if (!is.null(flavor_ban)) {
-    tags$details(open = FALSE,
-      tags$summary("FLAVOR BAN STATUS"),
-      tags$div(
-        tags$label(tags$input(type = "checkbox", id = "flavor_ban_layer"), " Flavor Ban")
-      )
-    )
-  },
-  
-  # Race/ethnicity layers section
-  tags$details(open = FALSE,
-    tags$summary("RACE/ETHNICITY PERCENTAGE"),
-    tags$div(
-      tags$label(tags$input(type = "checkbox", id = "layer_white"), " White"), tags$br(),
-      tags$label(tags$input(type = "checkbox", id = "layer_black"), " African American"), tags$br(),
-      tags$label(tags$input(type = "checkbox", id = "layer_native"), " Native American"), tags$br(),
-      tags$label(tags$input(type = "checkbox", id = "layer_other"), " Other/Multiracial")
-    )
-  ),
-  
-  # Age distribution section
-  tags$details(open = FALSE,
-    tags$summary("AGE DISTRIBUTION"),
-    tags$div(
-      tags$label(tags$input(type = "checkbox", id = "layer_youth"), " Youth Proportion (Under 21)")
-    )
-  ),
-  
-  # Socioeconomic indicators section
-  tags$details(open = FALSE,
-    tags$summary("SOCIOECONOMIC INDICATORS"),
-    tags$div(
-      tags$label(tags$input(type = "checkbox", id = "layer_sdi"), " Social Deprivation Index"), tags$br(),
-      tags$label(tags$input(type = "checkbox", id = "layer_poverty"), " Poverty Index"), tags$br(),
-      tags$label(tags$input(type = "checkbox", id = "layer_income"), " Median Household Income")
-    )
-  )
-)
 
+layer_panel_html \<- tags\$div( class = "layer-panel", style = "background:white; padding:10px; border-radius:5px; box-shadow:0 1px 5px rgba(0,0,0,0.3); max-height:400px; overflow-y:auto; font-size:14px;",
 
-#--------------------------------------
-# Add Interactive Controls and JavaScript
-#--------------------------------------
+\# Retailer layers section tags$details(open = TRUE,
+    tags$summary("RETAILERS"), tags$div(
+      tags$label(tags$input(type = "checkbox", id = "all_retailers_layer", checked = TRUE), " All Retailers"), tags$br(), tags$label(tags$input(type = "checkbox", id = "online_retailers_layer", checked = FALSE), " Online Retailers (Red)") ) ),
+
+\# Flavor ban section (if data is available) if (!is.null(flavor_ban)) { tags$details(open = FALSE,
+      tags$summary("FLAVOR BAN STATUS"), tags$div(
+        tags$label(tags\$input(type = "checkbox", id = "flavor_ban_layer"), " Flavor Ban") ) ) },
+
+\# Race/ethnicity layers section tags$details(open = FALSE,
+    tags$summary("RACE/ETHNICITY PERCENTAGE"), tags$div(
+      tags$label(tags$input(type = "checkbox", id = "layer_white"), " White"), tags$br(), tags$label(tags$input(type = "checkbox", id = "layer_black"), " African American"), tags$br(),
+      tags$label(tags$input(type = "checkbox", id = "layer_native"), " Native American"), tags$br(), tags$label(tags$input(type = "checkbox", id = "layer_other"), " Other/Multiracial") ) ),
+
+\# Age distribution section tags$details(open = FALSE,
+    tags$summary("AGE DISTRIBUTION"), tags$div(
+      tags$label(tags\$input(type = "checkbox", id = "layer_youth"), " Youth Proportion (Under 21)") ) ),
+
+\# Socioeconomic indicators section tags$details(open = FALSE,
+    tags$summary("SOCIOECONOMIC INDICATORS"), tags$div(
+      tags$label(tags$input(type = "checkbox", id = "layer_sdi"), " Social Deprivation Index"), tags$br(), tags$label(tags$input(type = "checkbox", id = "layer_poverty"), " Poverty Index"), tags$br(),
+      tags$label(tags\$input(type = "checkbox", id = "layer_income"), " Median Household Income") ) ) )
+
+#-------------------------------------- \# Add Interactive Controls and JavaScript #--------------------------------------
 
 # Add sidebar panel and implement JavaScript for dynamic layer control and legend
-map <- map %>%
-  addControl(html = HTML(as.character(layer_panel_html)), position = "topright") %>%
-  htmlwidgets::onRender("
-  function(el, x) {
-    var map = this;
-    
-    // ---- Configuration Data ----
-    
-    // Map layer IDs to display names
-    var layerMap = {
-      'all_retailers_layer': 'All Vape Retailers',
-      'online_retailers_layer': 'Online Vape Retailers',
-      'flavor_ban_layer': 'Flavor Ban',
-      'layer_white': 'Percent White',
-      'layer_black': 'Percent African American',
-      'layer_native': 'Percent Native American',
-      'layer_other': 'Percent Other/Multiracial',
-      'layer_youth': 'Youth Proportion (Under 21)',
-      'layer_sdi': 'Social Deprivation Index',
-      'layer_poverty': 'Poverty Index',
-      'layer_income': 'Median Household Income'
-    };
-    
-    // Color palette mapping for demographic layers
-    var paletteMap = {
-      'Percent White': 'Greens',
-      'Percent African American': 'OrRd',
-      'Percent Native American': 'Reds',
-      'Percent Other/Multiracial': 'BuGn',
-      'Youth Proportion (Under 21)': 'PuBuGn',
-      'Social Deprivation Index': 'RdPu',
-      'Poverty Index': 'YlOrBr',
-      'Median Household Income': 'YlGnBu'
-    };
-    
-    // ---- Helper Functions ----
-    
-    /**
-     * Returns CSS gradient string for the specified color palette
-     * @param {string} palette - The name of the color palette
-     * @return {string} CSS gradient string or empty string if palette not found
-     */
-    function getColorRamp(palette) {
-      var colors = {
-        'Greens': ['#e5f5e0', '#31a354'],
-        'OrRd': ['#fee8c8', '#e34a33'],
-        'Reds': ['#fee0d2', '#de2d26'],
-        'BuGn': ['#e5f5f9', '#2ca25f'],
-        'PuBuGn': ['#ece2f0', '#1c9099'],
-        'RdPu': ['#fde0dd', '#c51b8a'],
-        'YlOrBr': ['#fff7bc', '#d95f0e'],
-        'YlGnBu': ['#edf8b1', '#2c7fb8']
-      };
-      
-      if (colors[palette]) {
-        return 'linear-gradient(to right, ' + colors[palette][0] + ', ' + colors[palette][1] + ')';
-      }
-      return '';
-    }
-    
-    /**
-     * Updates legend for demographic layers
-     * @param {string} layerName - The name of the active layer
-     */
-    function updateLegend(layerName) {
-      var legendDiv = document.getElementById('legend');
-      if (!legendDiv) return;
-      
-      var palette = paletteMap[layerName];
-      if (!palette) {
-        legendDiv.innerHTML = '';
-        return;
-      }
-      
-      var gradient = getColorRamp(palette);
-      var label = layerName;
-      
-      legendDiv.innerHTML = '<div style=\"font-family: Arial, sans-serif; font-size: 13px; padding: 8px 12px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 140px;\">' +
-        '<div style=\"font-weight:600; font-size:14px; margin-bottom:6px;\">' + label + '</div>' +
-        '<div style=\"height: 10px; width: 100%; background:' + gradient + '; border-radius: 5px; margin-bottom: 6px;\"></div>' +
-        '<div style=\"display:flex; justify-content:space-between; font-size:11px; color:#555;\">' +
-        '<span>Low</span><span>High</span>' +
-        '</div>' +
-        '</div>';
-    }
-    
-    /**
-     * Checks if a layer ID represents a thematic (choropleth) layer
-     * @param {string} id - Layer ID to check
-     * @return {boolean} True if thematic layer
-     */
-    function isThematicLayer(id) {
-      return id.startsWith('layer_') || id === 'flavor_ban_layer';
-    }
-    
-    /**
-     * Shows or hides the flavor ban note based on layer state
-     * @param {boolean} checked - Whether flavor ban layer is active
-     */
-    function handleFlavorBanLayer(checked) {
-      var noteDiv = document.getElementById('flavor_ban_note');
-      if (!noteDiv) return;
-      
-      if (checked) {
-        noteDiv.style.display = 'block';
-        updateFlavorBanLegend(true);
-      } else {
-        noteDiv.style.display = 'none';
-        updateFlavorBanLegend(false);
-      }
-    }
-    
-    /**
-     * Updates legend specifically for flavor ban layer
-     * @param {boolean} show - Whether to show the flavor ban legend
-     */
-    function updateFlavorBanLegend(show) {
-      var legendDiv = document.getElementById('legend');
-      if (!legendDiv) return;
-      
-      if (show) {
-        legendDiv.innerHTML = '<div style=\"font-family: Arial, sans-serif; font-size: 13px; padding: 8px 12px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 140px;\">' +
-          '<div style=\"font-weight:600; font-size:14px; margin-bottom:6px;\">Flavor Ban Status</div>' +
-          '<div style=\"display:flex; align-items:center; margin-bottom:3px;\">' +
-          '<div style=\"width:15px; height:15px; background-color:#C62828; margin-right:5px;\"></div>' +
-          '<span>No Ban (City)</span>' +
-          '</div>' +
-          '<div style=\"display:flex; align-items:center; margin-bottom:3px;\">' +
-          '<div style=\"width:15px; height:15px; background-color:#A5D6A7; margin-right:5px;\"></div>' +
-          '<span>Ban Effective (County)</span>' +
-          '</div>' +
-          '<div style=\"display:flex; align-items:center;\">' +
-          '<div style=\"width:15px; height:15px; background-color:#228B22; margin-right:5px;\"></div>' +
-          '<span>Ban Effective (City)</span>' +
-          '</div>' +
-          '</div>';
-      }
-    }
-    
-    /**
-     * Updates all map layers based on current checkbox states
-     * Handles mutual exclusivity between flavor ban and choropleth layers
-     */
-    function updateLayers() {
-      // Check if flavor ban is active
-      var flavorBanActive = false;
-      var flavorBanCheckbox = document.getElementById('flavor_ban_layer');
-      if (flavorBanCheckbox && flavorBanCheckbox.checked) {
-        flavorBanActive = true;
-        map.addLayer(map.layerManager.getLayerGroup('Flavor Ban'));
-        handleFlavorBanLayer(true);
-      } else if (flavorBanCheckbox) {
-        map.removeLayer(map.layerManager.getLayerGroup('Flavor Ban'));
-        handleFlavorBanLayer(false);
-      }
-      
-      // Check for active choropleth layers
-      var activeChoroplethFound = false;
-      Object.keys(layerMap).forEach(id => {
-        if (id.startsWith('layer_')) {
-          var checkbox = document.getElementById(id);
-          var groupName = layerMap[id];
-          
-          if (checkbox && checkbox.checked) {
-            activeChoroplethFound = true;
-            map.addLayer(map.layerManager.getLayerGroup(groupName));
-            updateLegend(groupName);
-            
-            // If flavor ban is active, disable it
-            if (flavorBanActive && flavorBanCheckbox) {
-              flavorBanCheckbox.checked = false;
-              map.removeLayer(map.layerManager.getLayerGroup('Flavor Ban'));
-              handleFlavorBanLayer(false);
-            }
-          } else if (checkbox) {
-            map.removeLayer(map.layerManager.getLayerGroup(groupName));
-          }
-        }
-      });
-      
-      // If no choropleth is active and flavor ban isn't either, clear the legend
-      if (!activeChoroplethFound && !flavorBanActive) {
-        var legendDiv = document.getElementById('legend');
-        if (legendDiv) {
-          legendDiv.innerHTML = '';
-        }
-      }
-    }
-    
-    // Track which retailer layer was toggled last
-    var lastToggledRetailer = '';
-    
-    // ---- Set Up Event Listeners ----
-    
-    // Add change event listeners for all layer checkboxes
-    Object.keys(layerMap).forEach(id => {
-      var checkbox = document.getElementById(id);
-      if (!checkbox) return;
-      
-      checkbox.addEventListener('change', function() {
-        if (id === 'all_retailers_layer' || id === 'online_retailers_layer') {
-          // Handle retailer layers separately to ensure proper drawing order
-          
-          // Remove both retailer layers from map
-          map.removeLayer(map.layerManager.getLayerGroup('All Vape Retailers'));
-          map.removeLayer(map.layerManager.getLayerGroup('Online Vape Retailers'));
-          
-          var allCheckbox = document.getElementById('all_retailers_layer');
-          var onlineCheckbox = document.getElementById('online_retailers_layer');
-          
-          // Always add layers in the same order to maintain consistent visibility
-          // All retailers first (bottom layer), then online retailers (top layer)
-          if (allCheckbox.checked) {
-            map.addLayer(map.layerManager.getLayerGroup('All Vape Retailers'));
-          }
-          
-          if (onlineCheckbox.checked) {
-            map.addLayer(map.layerManager.getLayerGroup('Online Vape Retailers'));
-          }
-        } else if (isThematicLayer(id)) {
-          // For thematic layers, implement exclusive selection
-          if (checkbox.checked) {
-            // Uncheck all other thematic layers
-            Object.keys(layerMap).forEach(otherId => {
-              if (otherId !== id && isThematicLayer(otherId)) {
-                var otherCheckbox = document.getElementById(otherId);
-                if (otherCheckbox && otherCheckbox.checked) {
-                  otherCheckbox.checked = false;
-                }
-              }
-            });
-          }
-          // Update all layers
-          updateLayers();
-        }
-      });
-    });
-    
-    // Initialize layers on map load
-    updateLayers();
+
+map \<- map %\>% addControl(html = HTML(as.character(layer_panel_html)), position = "topright") %\>% htmlwidgets::onRender(" function(el, x) { var map = this;
+
+```         
+// ---- Configuration Data ----
+
+// Map layer IDs to display names
+var layerMap = {
+  'all_retailers_layer': 'All Vape Retailers',
+  'online_retailers_layer': 'Online Vape Retailers',
+  'flavor_ban_layer': 'Flavor Ban',
+  'layer_white': 'Percent White',
+  'layer_black': 'Percent African American',
+  'layer_native': 'Percent Native American',
+  'layer_other': 'Percent Other/Multiracial',
+  'layer_youth': 'Youth Proportion (Under 21)',
+  'layer_sdi': 'Social Deprivation Index',
+  'layer_poverty': 'Poverty Index',
+  'layer_income': 'Median Household Income'
+};
+
+// Color palette mapping for demographic layers
+var paletteMap = {
+  'Percent White': 'Greens',
+  'Percent African American': 'OrRd',
+  'Percent Native American': 'Reds',
+  'Percent Other/Multiracial': 'BuGn',
+  'Youth Proportion (Under 21)': 'PuBuGn',
+  'Social Deprivation Index': 'RdPu',
+  'Poverty Index': 'YlOrBr',
+  'Median Household Income': 'YlGnBu'
+};
+
+// ---- Helper Functions ----
+
+/**
+ * Returns CSS gradient string for the specified color palette
+ * @param {string} palette - The name of the color palette
+ * @return {string} CSS gradient string or empty string if palette not found
+ */
+function getColorRamp(palette) {
+  var colors = {
+    'Greens': ['#e5f5e0', '#31a354'],
+    'OrRd': ['#fee8c8', '#e34a33'],
+    'Reds': ['#fee0d2', '#de2d26'],
+    'BuGn': ['#e5f5f9', '#2ca25f'],
+    'PuBuGn': ['#ece2f0', '#1c9099'],
+    'RdPu': ['#fde0dd', '#c51b8a'],
+    'YlOrBr': ['#fff7bc', '#d95f0e'],
+    'YlGnBu': ['#edf8b1', '#2c7fb8']
+  };
+  
+  if (colors[palette]) {
+    return 'linear-gradient(to right, ' + colors[palette][0] + ', ' + colors[palette][1] + ')';
   }
-  ") %>%
-  setView(lng = -117.05, lat = 32.95, zoom = 10.3)  # Set initial map view to San Diego area
+  return '';
+}
+
+/**
+ * Updates legend for demographic layers
+ * @param {string} layerName - The name of the active layer
+ */
+function updateLegend(layerName) {
+  var legendDiv = document.getElementById('legend');
+  if (!legendDiv) return;
+  
+  var palette = paletteMap[layerName];
+  if (!palette) {
+    legendDiv.innerHTML = '';
+    return;
+  }
+  
+  var gradient = getColorRamp(palette);
+  var label = layerName;
+  
+  legendDiv.innerHTML = '<div style=\"font-family: Arial, sans-serif; font-size: 13px; padding: 8px 12px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 140px;\">' +
+    '<div style=\"font-weight:600; font-size:14px; margin-bottom:6px;\">' + label + '</div>' +
+    '<div style=\"height: 10px; width: 100%; background:' + gradient + '; border-radius: 5px; margin-bottom: 6px;\"></div>' +
+    '<div style=\"display:flex; justify-content:space-between; font-size:11px; color:#555;\">' +
+    '<span>Low</span><span>High</span>' +
+    '</div>' +
+    '</div>';
+}
+
+/**
+ * Checks if a layer ID represents a thematic (choropleth) layer
+ * @param {string} id - Layer ID to check
+ * @return {boolean} True if thematic layer
+ */
+function isThematicLayer(id) {
+  return id.startsWith('layer_') || id === 'flavor_ban_layer';
+}
+
+/**
+ * Shows or hides the flavor ban note based on layer state
+ * @param {boolean} checked - Whether flavor ban layer is active
+ */
+function handleFlavorBanLayer(checked) {
+  var noteDiv = document.getElementById('flavor_ban_note');
+  if (!noteDiv) return;
+  
+  if (checked) {
+    noteDiv.style.display = 'block';
+    updateFlavorBanLegend(true);
+  } else {
+    noteDiv.style.display = 'none';
+    updateFlavorBanLegend(false);
+  }
+}
+
+/**
+ * Updates legend specifically for flavor ban layer
+ * @param {boolean} show - Whether to show the flavor ban legend
+ */
+function updateFlavorBanLegend(show) {
+  var legendDiv = document.getElementById('legend');
+  if (!legendDiv) return;
+  
+  if (show) {
+    legendDiv.innerHTML = '<div style=\"font-family: Arial, sans-serif; font-size: 13px; padding: 8px 12px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 140px;\">' +
+      '<div style=\"font-weight:600; font-size:14px; margin-bottom:6px;\">Flavor Ban Status</div>' +
+      '<div style=\"display:flex; align-items:center; margin-bottom:3px;\">' +
+      '<div style=\"width:15px; height:15px; background-color:#C62828; margin-right:5px;\"></div>' +
+      '<span>No Ban (City)</span>' +
+      '</div>' +
+      '<div style=\"display:flex; align-items:center; margin-bottom:3px;\">' +
+      '<div style=\"width:15px; height:15px; background-color:#A5D6A7; margin-right:5px;\"></div>' +
+      '<span>Ban Effective (County)</span>' +
+      '</div>' +
+      '<div style=\"display:flex; align-items:center;\">' +
+      '<div style=\"width:15px; height:15px; background-color:#228B22; margin-right:5px;\"></div>' +
+      '<span>Ban Effective (City)</span>' +
+      '</div>' +
+      '</div>';
+  }
+}
+
+/**
+ * Updates all map layers based on current checkbox states
+ * Handles mutual exclusivity between flavor ban and choropleth layers
+ */
+function updateLayers() {
+  // Check if flavor ban is active
+  var flavorBanActive = false;
+  var flavorBanCheckbox = document.getElementById('flavor_ban_layer');
+  if (flavorBanCheckbox && flavorBanCheckbox.checked) {
+    flavorBanActive = true;
+    map.addLayer(map.layerManager.getLayerGroup('Flavor Ban'));
+    handleFlavorBanLayer(true);
+  } else if (flavorBanCheckbox) {
+    map.removeLayer(map.layerManager.getLayerGroup('Flavor Ban'));
+    handleFlavorBanLayer(false);
+  }
+  
+  // Check for active choropleth layers
+  var activeChoroplethFound = false;
+  Object.keys(layerMap).forEach(id => {
+    if (id.startsWith('layer_')) {
+      var checkbox = document.getElementById(id);
+      var groupName = layerMap[id];
+      
+      if (checkbox && checkbox.checked) {
+        activeChoroplethFound = true;
+        map.addLayer(map.layerManager.getLayerGroup(groupName));
+        updateLegend(groupName);
+        
+        // If flavor ban is active, disable it
+        if (flavorBanActive && flavorBanCheckbox) {
+          flavorBanCheckbox.checked = false;
+          map.removeLayer(map.layerManager.getLayerGroup('Flavor Ban'));
+          handleFlavorBanLayer(false);
+        }
+      } else if (checkbox) {
+        map.removeLayer(map.layerManager.getLayerGroup(groupName));
+      }
+    }
+  });
+  
+  // If no choropleth is active and flavor ban isn't either, clear the legend
+  if (!activeChoroplethFound && !flavorBanActive) {
+    var legendDiv = document.getElementById('legend');
+    if (legendDiv) {
+      legendDiv.innerHTML = '';
+    }
+  }
+}
+
+// Track which retailer layer was toggled last
+var lastToggledRetailer = '';
+
+// ---- Set Up Event Listeners ----
+
+// Add change event listeners for all layer checkboxes
+Object.keys(layerMap).forEach(id => {
+  var checkbox = document.getElementById(id);
+  if (!checkbox) return;
+  
+  checkbox.addEventListener('change', function() {
+    if (id === 'all_retailers_layer' || id === 'online_retailers_layer') {
+      // Handle retailer layers separately to ensure proper drawing order
+      
+      // Remove both retailer layers from map
+      map.removeLayer(map.layerManager.getLayerGroup('All Vape Retailers'));
+      map.removeLayer(map.layerManager.getLayerGroup('Online Vape Retailers'));
+      
+      var allCheckbox = document.getElementById('all_retailers_layer');
+      var onlineCheckbox = document.getElementById('online_retailers_layer');
+      
+      // Always add layers in the same order to maintain consistent visibility
+      // All retailers first (bottom layer), then online retailers (top layer)
+      if (allCheckbox.checked) {
+        map.addLayer(map.layerManager.getLayerGroup('All Vape Retailers'));
+      }
+      
+      if (onlineCheckbox.checked) {
+        map.addLayer(map.layerManager.getLayerGroup('Online Vape Retailers'));
+      }
+    } else if (isThematicLayer(id)) {
+      // For thematic layers, implement exclusive selection
+      if (checkbox.checked) {
+        // Uncheck all other thematic layers
+        Object.keys(layerMap).forEach(otherId => {
+          if (otherId !== id && isThematicLayer(otherId)) {
+            var otherCheckbox = document.getElementById(otherId);
+            if (otherCheckbox && otherCheckbox.checked) {
+              otherCheckbox.checked = false;
+            }
+          }
+        });
+      }
+      // Update all layers
+      updateLayers();
+    }
+  });
+});
+
+// Initialize layers on map load
+updateLayers();
+```
+
+} ") %\>% setView(lng = -117.05, lat = 32.95, zoom = 10.3) \# Set initial map view to San Diego area
 
 # Return the final map
+
 map
