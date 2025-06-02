@@ -1,55 +1,63 @@
-# Test whether flavor bans are associated with e-commerce retailer presence
-flav_ecomm <- table(analysis_data$flavor_ban, analysis_data$has_ecomm)
-prop.table(flav_ecomm, 1)  # Proportions by flavor ban status
+#############################################
+### STATISTICAL MODELS: BANS & PREDICTORS ###
+#############################################
 
+# Test association between flavor bans and e-commerce presence
+flav_ecomm <- table(analysis_data$flavor_ban, analysis_data$has_ecomm)
+prop.table(flav_ecomm, 1)  # Row-wise proportions by flavor ban status
+
+# Chi-squared test of independence
 chi_result <- chisq.test(flav_ecomm)
 print(chi_result)
-# Result: No significant association between flavor ban presence and e-commerce.
+# Result: No significant association between flavor ban status and e-commerce availability
 
-# Logistic regression: flavor bans → e-commerce presence
+
+##################################
+### LOGISTIC REGRESSION MODELS ###
+##################################
+
+# Model: flavor ban predicting e-commerce presence
 model_flavor <- glm(has_ecomm ~ flavor_ban, data = analysis_data, family = "binomial")
 summary(model_flavor)
-exp(coef(model_flavor))
-exp(confint(model_flavor))
-# Result: Flavor bans are not a significant predictor (p = 0.855).
+exp(coef(model_flavor))        # Odds ratios
+exp(confint(model_flavor))     # 95% CIs
+# Result: Not significant (p = 0.855)
 
-# --- EXPLORATORY MODELS ---
-
-# Logistic regression: income → e-commerce presence
+# Model: income predicting e-commerce presence
 model_income <- glm(has_ecomm ~ MdnHHnc, data = analysis_data, family = "binomial")
 summary(model_income)
 exp(coef(model_income))
 exp(confint(model_income))
-# Result: Higher income is significantly associated with higher odds of e-commerce (p = 0.0343).
+# Result: Higher income significantly associated with e-commerce (p = 0.034)
 
-# rescale mdnhhnc to 10000 increase 
-analysis_data$MdnHHnc_k10 <- analysis_data$MdnHHnc / 10000  # Per $10k
-model_income_10000 <- glm(has_ecomm ~ MdnHHnc_k10 + sdi, data = analysis_data, family = binomial)
+# Rescale income to $10,000 increments for interpretability
+analysis_data$MdnHHnc_k10 <- analysis_data$MdnHHnc / 10000
+model_income_10000 <- glm(has_ecomm ~ MdnHHnc_k10 + sdi, data = analysis_data, family = "binomial")
 exp(coef(model_income_10000))
 exp(confint(model_income_10000))
 
-# Logistic regression: SDI → e-commerce presence
+# Model: SDI predicting e-commerce presence
 model_sdi <- glm(has_ecomm ~ sdi, data = analysis_data, family = "binomial")
 summary(model_sdi)
 exp(coef(model_sdi))
 exp(confint(model_sdi))
-# Result: Higher SDI is significantly associated with lower odds of e-commerce (p = 0.0441).
+# Result: Higher SDI linked to lower odds of e-commerce (p = 0.044)
 
-# Logistic regression: under-21 population → e-commerce presence
+# Model: proportion under age 21 predicting e-commerce presence
 model_age <- glm(has_ecomm ~ Under21_per_cap, data = analysis_data, family = "binomial")
 summary(model_age)
 exp(coef(model_age))
 exp(confint(model_age))
-# Result: Marginal negative association (p = 0.0588); more youth may be linked to less e-commerce.
+# Result: Marginal negative association (p = 0.059)
 
-# Logistic regression: racial/ethnic proportions → e-commerce presence
+# Model: racial/ethnic composition predicting e-commerce presence
 model_race <- glm(has_ecomm ~ White + AfrcnAm + Hispanc + NativAm, data = analysis_data, family = "binomial")
 summary(model_race)
 exp(coef(model_race))
 exp(confint(model_race))
-# Result: No significant associations found for race/ethnicity variables.
+# Result: No significant associations for any racial/ethnic group
 
-# Multivariate model: income + SDI + age + race
+# Full multivariate model with SES, age, and race
 model_multi <- glm(
   has_ecomm ~ MdnHHnc + sdi + Under21_per_cap + White + AfrcnAm + Hispanc + NativAm,
   data = analysis_data,
@@ -58,7 +66,7 @@ model_multi <- glm(
 summary(model_multi)
 exp(coef(model_multi))
 exp(confint(model_multi))
-# Result: No variables remain significant, suggesting shared variance or reduced power.
+# Result: No variables remain significant, suggesting shared variance
 
 # Interaction model: SDI × under-21 population
 model_interact <- glm(
@@ -69,39 +77,47 @@ model_interact <- glm(
 summary(model_interact)
 exp(coef(model_interact))
 exp(confint(model_interact))
-# Result: No significant interaction; youth proportion does not moderate SDI’s effect.
+# Result: No significant interaction; youth does not moderate SDI effect
 
-# Expanded interaction model with income
+# Extended interaction model: SES main effects + SDI × youth
 model_big_interact <- glm(
   has_ecomm ~ MdnHHnc + sdi + Under21_per_cap + sdi:Under21_per_cap,
   data = analysis_data,
   family = "binomial"
 )
 summary(model_big_interact)
-# Result: Still no significant interaction; SES effects remain independent.
+# Result: Interaction term remains non-significant
 
-# Interaction: income × flavor ban
+# Interaction model: income × flavor ban
 model_interaction <- glm(
   has_ecomm ~ MdnHHnc * flavor_ban,
   data = analysis_data,
   family = "binomial"
 )
 summary(model_interaction)
-# Result: No significant interaction; income’s effect on e-commerce does not depend on flavor ban presence.
+# Result: No significant interaction; income effect not moderated by policy
 
-# Test whether SES predicts flavor bans
+######################################
+### PREDICTING FLAVOR BAN PRESENCE ###
+######################################
+
+# Model: income predicting flavor ban presence
 model_ses_to_ban <- glm(flavor_ban ~ MdnHHnc, data = analysis_data, family = "binomial")
 summary(model_ses_to_ban)
 exp(coef(model_ses_to_ban))
 exp(confint(model_ses_to_ban))
-# Result: Higher income significantly predicts flavor ban presence (p = 0.0146).
+# Result: Higher income significantly predicts flavor ban presence (p = 0.015)
 
-# Multivariate: SES variables predicting flavor bans
+# Model: income + SDI + poverty as SES predictors of flavor bans
 model_ses_to_ban <- glm(flavor_ban ~ MdnHHnc + sdi + Poverty, data = analysis_data, family = "binomial")
 summary(model_ses_to_ban)
-# Result: No individual SES variable remains significant; overlapping effects likely.
+# Result: No individual variable significant; likely overlapping effects
 
-# Visualization: e-commerce prevalence by income tertile
+#############################################
+### VISUALIZATION: E-COMMERCE PREVALENCE ###
+#############################################
+
+# Bar chart: E-commerce prevalence by income tertile
 analysis_data %>%
   mutate(income_tertile = ntile(MdnHHnc, 3)) %>%
   group_by(income_tertile) %>%
@@ -116,7 +132,7 @@ analysis_data %>%
   theme_minimal()
 
 
-# Visualization: e-commerce prevalence by sdi tertile
+# Bar chart: E-commerce prevalence by SDI tertile
 analysis_data %>%
   mutate(sdi_tertile = ntile(sdi, 3)) %>%
   group_by(sdi_tertile) %>%
@@ -131,9 +147,7 @@ analysis_data %>%
   theme_minimal()
 
 
-
-
-#bar chart
+# Bar chart: Overall proportion of e-commerce retailers
 analysis_data %>%
   mutate(ecomm_status = ifelse(has_ecomm == 1, "E-Commerce", "No E-Commerce")) %>%
   count(ecomm_status) %>%
@@ -148,14 +162,16 @@ analysis_data %>%
   ) +
   theme_minimal()
 
-#pie chart
+
+# Pie chart: Share of e-commerce vs. non-e-commerce retailers
 ecomm_summary <- analysis_data %>%
   mutate(ecomm_status = ifelse(has_ecomm == 1, "E-Commerce", "No E-Commerce")) %>%
   count(ecomm_status) %>%
-  mutate(prop = n / sum(n),
-         label = paste0(ecomm_status, "\n", round(prop * 100), "%"))
+  mutate(
+    prop = n / sum(n),
+    label = paste0(ecomm_status, "\n", round(prop * 100), "%")
+  )
 
-# Make the pie chart
 ggplot(ecomm_summary, aes(x = "", y = prop, fill = ecomm_status)) +
   geom_col(width = 1, color = "white") +
   coord_polar(theta = "y") +
@@ -167,9 +183,8 @@ ggplot(ecomm_summary, aes(x = "", y = prop, fill = ecomm_status)) +
     plot.title = element_text(hjust = 0.5, face = "bold")
   )
 
-library(scales)
 
-# 
+# Styled income-based bar chart with labels and custom colors
 ecomm_by_income <- analysis_data %>%
   mutate(income_tertile = ntile(MdnHHnc, 3)) %>%
   group_by(income_tertile) %>%
@@ -180,11 +195,10 @@ ecomm_by_income <- analysis_data %>%
     labels = c("Low Income", "Middle Income", "High Income")
   ))
 
-# Assign plot to a variable
+# Assign the plot to a variable
 p <- ggplot(ecomm_by_income, aes(x = income_label, y = ecomm_rate, fill = income_label)) +
   geom_col(width = 0.7, color = "black", show.legend = FALSE) +
-  geom_text(aes(label = percent(ecomm_rate, accuracy = 1)),
-            vjust = -0.5, size = 5) +
+  geom_text(aes(label = percent(ecomm_rate, accuracy = 1)), vjust = -0.5, size = 5) +
   scale_y_continuous(labels = percent_format(accuracy = 1), limits = c(0, 0.2)) +
   labs(
     title = "E-Commerce Prevalence by Income Tertile",
@@ -197,25 +211,42 @@ p <- ggplot(ecomm_by_income, aes(x = income_label, y = ecomm_rate, fill = income
     plot.title = element_text(hjust = 0.5, size = 22),
     axis.text = element_text(color = "gray25", size = 13)
   )
+
+# Display the plot
 p
 
-# Save it
+# Save the plot as a high-resolution image
 ggsave("ecomm_by_income.png", plot = p, width = 8.1, height = 8, dpi = 300)
 
+#############################################
+### VIOLATION & E-COMMERCE SUMMARY PLOTS ###
+#############################################
 
-library(ggplot2)
-
-# Flavored product sellers (only)
+# Bar chart: Count of flavored product sellers in ban vs. non-ban areas
 df_flavored <- data.frame(
   Ban_Status = c("Ban Present (Violation)", "No Ban"),
   Count = c(11, 8)
 )
 
-library(dplyr)
-library(ggplot2)
-library(tidyr)
+ggplot(df_flavored, aes(x = Ban_Status, y = Count, fill = Ban_Status)) +
+  geom_col(color = "black", show.legend = FALSE) +
+  labs(
+    title = "Flavored Product Sales Among E-Commerce Retailers",
+    x = "Jurisdiction",
+    y = "Number of Retailers"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 15, hjust = 1),
+    plot.title = element_text(face = "bold", hjust = 0.5)
+  )
 
-# Create tertiles
+
+##############################################
+### E-COMMERCE BY DEMOGRAPHIC & POLICY TILES ###
+##############################################
+
+# Generate tertiles and categorical labels
 ecomm_summary_data <- analysis_data %>%
   mutate(
     income_tertile = ntile(MdnHHnc, 3),
@@ -228,7 +259,8 @@ ecomm_summary_data <- analysis_data %>%
   ) %>%
   select(has_ecomm, income, sdi, youth, policy)
 
-# Pivot and summarize
+
+# Reshape and summarize
 df_long <- ecomm_summary_data %>%
   pivot_longer(cols = c(income, sdi, youth, policy), names_to = "Category", values_to = "Group") %>%
   group_by(Category, Group) %>%
@@ -238,7 +270,8 @@ df_long <- ecomm_summary_data %>%
     ecomm_rate = round(100 * ecomm / n, 1),
     .groups = "drop"
   )
-# Plot
+
+# Bar chart: E-commerce prevalence across multiple factors
 ggplot(df_long, aes(x = Group, y = ecomm_rate, fill = Category)) +
   geom_col(color = "black", show.legend = FALSE) +
   geom_text(aes(label = paste0(ecomm_rate, "%")), vjust = -0.5, size = 4) +
@@ -247,158 +280,95 @@ ggplot(df_long, aes(x = Group, y = ecomm_rate, fill = Category)) +
     x = NULL,
     y = "Percent of Retailers with E-Commerce"
   ) +
-  scale_fill_brewer(palette = "primary") +
+  scale_fill_brewer(palette = "Set1") +
   ylim(0, max(df_long$ecomm_rate, na.rm = TRUE) + 5) +
   theme_minimal(base_size = 13) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
+#####################
+### GWR + MAPPING ###
+#####################
+##############################
+### GWR STATIC MAP (CLEAN) ###
+##############################
+
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(GWmodel)
 
 
-#### geospatial analysis
+analysis_data_sf <- st_as_sf(
+  analysis_data,
+  wkt = "retailer_wkt",
+  crs = 4326
+) %>%
+  st_transform(crs = st_crs(normalized_SE_sf)) %>%
+  filter(!is.na(has_ecomm), !is.na(sdi)) %>%
+  filter(!st_is_empty(st_geometry(.)))
 
-# 1. Convert to sf using retailer WKT geometry
-analysis_data_sf <- st_as_sf(analysis_data, wkt = "retailer_wkt", crs = 2226)
 
-# 2. Drop rows with missing outcome or predictor
-analysis_data_sf <- analysis_data_sf[!is.na(analysis_data_sf$has_ecomm) & !is.na(analysis_data_sf$sdi), ]
-
-# 3. Convert to Spatial object for GWmodel
+# Convert to Spatial object for GWR
 analysis_sp <- as(analysis_data_sf, "Spatial")
 
-# 4. Bandwidth selection (adaptive bisquare kernel using AIC)
-bw <- bw.gwr(has_ecomm ~ sdi,
-             data = analysis_sp,
-             approach = "AIC",
-             kernel = "bisquare",
-             adaptive = TRUE)
+# Bandwidth selection
+bw <- bw.gwr(
+  has_ecomm ~ sdi,
+  data = analysis_sp,
+  approach = "AIC",
+  kernel = "bisquare",
+  adaptive = TRUE
+)
 
-# 5. Run GWR
-gwr_result <- gwr.basic(has_ecomm ~ sdi,
-                        data = analysis_sp,
-                        bw = bw,
-                        kernel = "bisquare",
-                        adaptive = TRUE)
+# Run GWR
+gwr_result <- gwr.basic(
+  has_ecomm ~ sdi,
+  data = analysis_sp,
+  bw = bw,
+  kernel = "bisquare",
+  adaptive = TRUE
+)
 
-# 6. View model diagnostics
-gwr_result$GW.diagnostic
-
-
-
-
-library(tmap)
-
-# Convert GWR result to sf object for mapping
+# Convert to sf object
 gwr_sf <- st_as_sf(gwr_result$SDF)
 
-# Make sure CRS matches (should be 2226, but just in case)
-normalized_SE_sf <- st_transform(normalized_SE_sf, crs = st_crs(gwr_sf))
+# Extract only San Diego County tracts
+normalized_SE_sd <- normalized_SE_sf %>% filter(County == "San Diego")
 
-# Map tract boundaries + GWR results
-library(tmap)
-tmap_mode("view")
-
-tm_shape(normalized_SE_sf) +
-  tm_borders(col = "gray60") +
-  tm_shape(gwr_sf) +
-  tm_dots(col = "sdi",
-          palette = "RdBu",
-          style = "quantile",
-          size = 0.1,
-          title = "Local SDI Coefficient") +
-  tm_layout(main.title = "GWR: Spatial Variation in SDI Effect on E-Commerce")
-
-
-# Filter to San Diego only
-normalized_SE_sd <- normalized_SE_sf %>%
-  filter(County == "San Diego")  # or whatever the name is in your data
-
-
-tmap_mode("view")
-
-tm_shape(normalized_SE_sd) +
-  tm_borders(col = "gray60") +
-  tm_shape(gwr_sf) +
-  tm_dots(col = "sdi",
-          palette = "RdBu",
-          style = "quantile",
-          size = 0.3,  # was 0.1 before
-          title = "Local SDI Coefficient") +
-  tm_layout(main.title = "GWR: SDI Effect on E-Commerce (San Diego Only)")
-
-st_crs(normalized_SE_sf)
-st_crs(gwr_sf)
-
-
-
-
-
-# Basic plot to test visibility
-plot(st_geometry(gwr_sf), main = "GWR Retailer Points")
-
-# How many features?
-nrow(gwr_sf)
-
-# Show first few coordinates
-head(st_coordinates(gwr_sf))
-
-
-# Reproject both layers to WGS84 (EPSG:4326)
+#  Reproject both to WGS84 for mapping
+tracts_wgs <- st_transform(normalized_SE_sd, 4326)
 gwr_sf_wgs <- st_transform(gwr_sf, 4326)
-tracts_wgs <- st_transform(normalized_SE_sf, 4326)
 
-# Plot both together
-library(tmap)
-tmap_mode("view")
-
-tm_shape(tracts_wgs) +
-  tm_borders(col = "gray70") +
-  tm_shape(gwr_sf_wgs) +
-  tm_dots(col = "sdi",
-          palette = "RdBu",
-          style = "quantile",
-          size = 0.6,
-          title = "Local SDI Coefficient") +
-  tm_layout(
-    main.title = "GWR: Local SDI Effect on E-Commerce",
-    legend.outside = TRUE
+# Create the static map
+ggplot() +
+  geom_sf(data = tracts_wgs, fill = "gray90", color = "gray60", linewidth = 0.2) +
+  geom_sf(data = gwr_sf_wgs, aes(color = sdi), size = 1.2) +
+  scale_color_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0,
+    name = "Local SDI\nCoefficient"
+  ) +
+  labs(
+    title = "Local Effect of SDI on E-Commerce Presence",
+    subtitle = "Geographically Weighted Regression (GWR), San Diego County"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "right"
   )
 
 
-unique(st_geometry_type(gwr_sf))
-summary(st_coordinates(gwr_sf))
+#########################
+### DEMOGRAPHIC STATS ###
+#########################
 
+# Number of distinct jurisdiction names
+length(unique(analysis_data$ApprxLc))  # Adjust column name if needed
 
-# Force tmap to use only the extent of the GWR points
-library(tmap)
-tmap_mode("view")
-
-tm_shape(gwr_sf) +
-  tm_dots(col = "sdi", palette = "RdBu", style = "quantile", size = 0.6) +
-  tm_layout(main.title = "JUST GWR Points")
-# Crop the tract layer to just the bounding box of the GWR points
-tracts_clipped <- st_crop(normalized_SE_sf, st_bbox(gwr_sf))
-
-tm_shape(tracts_clipped) +
-  tm_borders(col = "gray70") +
-  tm_shape(gwr_sf) +
-  tm_dots(col = "sdi", palette = "RdBu", style = "quantile", size = 0.6) +
-  tm_layout(main.title = "Clipped Tracts + GWR SDI Dots")
-# Force exact same CRS object from gwr_sf to normalized_SE_sf
-normalized_SE_sf <- st_transform(normalized_SE_sf, crs = st_crs(gwr_sf))
-tracts_clipped <- st_crop(normalized_SE_sf, st_bbox(gwr_sf))
-tmap_mode("view")
-
-tm_shape(tracts_clipped) +
-  tm_borders(col = "gray70") +
-  tm_shape(gwr_sf) +
-  tm_dots(col = "sdi", palette = "RdBu", style = "quantile", size = 0.6) +
-  tm_layout(main.title = "GWR SDI Coefficients on Clipped Tracts")
-
-
-length(unique(analysis_data$ApprxLc))  # Or whatever your column name is
-
-# median statistics comparing ecomm vs no ecomm census tracts
+# Summary stats (median) for e-commerce vs. non-e-commerce tracts
 analysis_data %>%
   group_by(has_ecomm) %>%
   summarize(
@@ -411,7 +381,7 @@ analysis_data %>%
     median_nativeam = median(NativAm, na.rm = TRUE)
   )
 
-# mean statistics comparing ecomm vs no ecomm census tracts
+# Summary stats (mean) for e-commerce vs. non-e-commerce tracts
 analysis_data %>%
   group_by(has_ecomm) %>%
   summarize(
@@ -424,15 +394,52 @@ analysis_data %>%
     mean_nativeam = mean(NativAm, na.rm = TRUE)
   )
 
-# Filter for shops with e-commerce
+#wilcox tests
+wilcox.test(MdnHHnc_k10 ~ has_ecomm, data = analysis_data)
+wilcox.test(sdi ~ has_ecomm, data = analysis_data)
+wilcox.test(Under21_per_cap ~ has_ecomm, data = analysis_data)
+wilcox.test(AfrcnAm ~ has_ecomm, data = analysis_data)
+wilcox.test(Hispanc ~ has_ecomm, data = analysis_data)
+wilcox.test(White ~ has_ecomm, data = analysis_data)
+wilcox.test(NativAm ~ has_ecomm, data = analysis_data)
+
+# Calculate IQR
+# For Median Household Income
+by(analysis_data$MdnHHnc_k10, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+# For Social Deprivation Index
+by(analysis_data$sdi, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+# For Under21_per_cap
+by(analysis_data$Under21_per_cap, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+# For each race variable
+by(analysis_data$AfrcnAm, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+by(analysis_data$Hispanc, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+by(analysis_data$White, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+by(analysis_data$NativAm, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+
+##############################################
+### E-COMMERCE RETAILER LOCATION BREAKDOWN ###
+##############################################
+
+# Filter to only retailers with e-commerce
 ecomm_shops <- analysis_data %>% filter(has_ecomm == 1)
-# Count how many are in "San Diego" (adjust this string to match your column exactly)
+
+# Count number located in San Diego (adjust string if needed)
 n_sandiego <- sum(ecomm_shops$ApprxLc == "San Diego", na.rm = TRUE)
-# Total e-comm shops
+
+# Total number of e-commerce retailers
 n_total_ecomm <- nrow(ecomm_shops)
-# Calculate % in San Diego
+
+# Compute percentage of e-commerce shops in San Diego
 percent_sandiego <- round((n_sandiego / n_total_ecomm) * 100, 1)
-# Print result
+
+# Output result
 cat("Percentage of e-commerce shops in San Diego:", percent_sandiego, "%\n")
 
+# List all unique reported locations
 print(unique(ecomm_shops$ApprxLc))
+
+

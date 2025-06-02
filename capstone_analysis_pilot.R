@@ -259,6 +259,7 @@ ecomm_summary_data <- analysis_data %>%
   ) %>%
   select(has_ecomm, income, sdi, youth, policy)
 
+
 # Reshape and summarize
 df_long <- ecomm_summary_data %>%
   pivot_longer(cols = c(income, sdi, youth, policy), names_to = "Category", values_to = "Group") %>%
@@ -360,15 +361,12 @@ ggplot() +
   )
 
 
-
-
-##########################################
-### SUPPLEMENTARY DESCRIPTIVE STATS ###
-##########################################
+#########################
+### DEMOGRAPHIC STATS ###
+#########################
 
 # Number of distinct jurisdiction names
 length(unique(analysis_data$ApprxLc))  # Adjust column name if needed
-
 
 # Summary stats (median) for e-commerce vs. non-e-commerce tracts
 analysis_data %>%
@@ -396,6 +394,31 @@ analysis_data %>%
     mean_nativeam = mean(NativAm, na.rm = TRUE)
   )
 
+#wilcox tests
+wilcox.test(MdnHHnc_k10 ~ has_ecomm, data = analysis_data)
+wilcox.test(sdi ~ has_ecomm, data = analysis_data)
+wilcox.test(Under21_per_cap ~ has_ecomm, data = analysis_data)
+wilcox.test(AfrcnAm ~ has_ecomm, data = analysis_data)
+wilcox.test(Hispanc ~ has_ecomm, data = analysis_data)
+wilcox.test(White ~ has_ecomm, data = analysis_data)
+wilcox.test(NativAm ~ has_ecomm, data = analysis_data)
+
+# Calculate IQR
+# For Median Household Income
+by(analysis_data$MdnHHnc_k10, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+# For Social Deprivation Index
+by(analysis_data$sdi, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+# For Under21_per_cap
+by(analysis_data$Under21_per_cap, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+# For each race variable
+by(analysis_data$AfrcnAm, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+by(analysis_data$Hispanc, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+by(analysis_data$White, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+by(analysis_data$NativAm, analysis_data$has_ecomm, quantile, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+
 
 ##############################################
 ### E-COMMERCE RETAILER LOCATION BREAKDOWN ###
@@ -418,3 +441,5 @@ cat("Percentage of e-commerce shops in San Diego:", percent_sandiego, "%\n")
 
 # List all unique reported locations
 print(unique(ecomm_shops$ApprxLc))
+
+
